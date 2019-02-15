@@ -37,13 +37,17 @@ final class Unix implements Process
         return $this->name;
     }
 
-    public function send(Message $message): void
+    public function send(Message ...$messages): void
     {
-        $this
-            ->sockets
-            ->connectTo($this->address)
-            ->write($this->protocol->encode($message))
-            ->close();
+        $socket = $this->sockets->connectTo($this->address);
+
+        try {
+            foreach ($messages as $message) {
+                $socket->write($this->protocol->encode($message));
+            }
+        } finally {
+            $socket->close();
+        }
     }
 
     public function listen(ElapsedPeriodInterface $timeout = null): Receiver

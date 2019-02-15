@@ -35,7 +35,7 @@ class UnixTest extends TestCase
         $this->assertSame($name, $process->name());
     }
 
-    public function testSendMessage()
+    public function testSendMessages()
     {
         $process = new Unix(
             $sockets = $this->createMock(Sockets::class),
@@ -43,27 +43,38 @@ class UnixTest extends TestCase
             $address = new Address('/tmp/foo'),
             new Name('foo')
         );
-        $message = $this->createMock(Message::class);
+        $message1 = $this->createMock(Message::class);
+        $message2 = $this->createMock(Message::class);
         $sockets
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
             ->willReturn($client = $this->createMock(Client::class));
         $protocol
-            ->expects($this->once())
+            ->expects($this->at(0))
             ->method('encode')
-            ->with($message)
-            ->willReturn($frame = Str::of(''));
+            ->with($message1)
+            ->willReturn($frame1 = Str::of(''));
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with($message2)
+            ->willReturn($frame2 = Str::of(''));
         $client
-            ->expects($this->once())
+            ->expects($this->at(0))
             ->method('write')
-            ->with($frame)
+            ->with($frame1)
+            ->will($this->returnSelf());
+        $client
+            ->expects($this->at(1))
+            ->method('write')
+            ->with($frame2)
             ->will($this->returnSelf());
         $client
             ->expects($this->once())
             ->method('close');
 
-        $this->assertNull($process->send($message));
+        $this->assertNull($process->send($message1, $message2));
     }
 
     public function testListen()

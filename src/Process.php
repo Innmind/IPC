@@ -8,6 +8,6 @@ use Innmind\TimeContinuum\ElapsedPeriodInterface;
 interface Process
 {
     public function name(): Process\Name;
-    public function send(Message $message): void;
+    public function send(Message ...$messages): void;
     public function listen(ElapsedPeriodInterface $timeout = null): Receiver;
 }
