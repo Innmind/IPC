@@ -54,8 +54,8 @@ class UnixTest extends TestCase
             ->expects($this->at(0))
             ->method('encode')
             ->with($this->callback(static function($message): bool {
-                return (string) $message->mediaType() === 'application/json' &&
-                    (string) $message->content() === '{"address":"\/tmp\/foo.sock","name":"foo"}';
+                return (string) $message->mediaType() === 'text/plain' &&
+                    (string) $message->content() === 'foo';
             }))
             ->willReturn($greeting = Str::of('greeting'));
         $protocol

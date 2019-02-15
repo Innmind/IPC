@@ -20,9 +20,7 @@
         "innmind/filesystem": "^3.3",
         "innmind/time-continuum": "^1.3",
         "innmind/operating-system": "^1.4",
-        "innmind/socket": "^2.0",
-        "innmind/url": "^2.0",
-        "innmind/json": "^1.1"
+        "innmind/socket": "^2.0"
     },
     "autoload": {
         "psr-4": {
