@@ -8,6 +8,7 @@ use Innmind\IPC\{
     Protocol,
     Process,
     Exception\NoMessage,
+    Exception\Stop,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
@@ -50,7 +51,8 @@ final class UnixClient implements Receiver
             $this->loop($listen);
         } catch (NoMessage $e) {
             // the other process closed the connection
-            return;
+        } catch (Stop $e) {
+            // do nothing when user want to stop listening
         }
     }
     private function loop(callable $listen): void

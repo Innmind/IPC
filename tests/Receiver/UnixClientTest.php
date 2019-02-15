@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Process,
     Message,
     Exception\NoMessage,
+    Exception\Stop,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -112,5 +113,36 @@ class UnixClientTest extends TestCase
             ++$count;
         }));
         $this->assertSame(3, $count);
+    }
+
+    public function testStopWhenAskedToDoSo()
+    {
+        $receive = new UnixClient(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            new Process\Name('foo'),
+            $address = new Address('/tmp/foo')
+        );
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn(\tmpfile());
+        $client
+            ->expects($this->once())
+            ->method('close');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($client);
+
+        $count = 0;
+
+        $this->assertNull($receive(function() use (&$count): void {
+            ++$count;
+            throw new Stop;
+        }));
+        $this->assertSame(1, $count);
     }
 }
