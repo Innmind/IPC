@@ -13,6 +13,7 @@ use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\ElapsedPeriodInterface;
 use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\Json\Json;
 use Innmind\Immutable\Str;
 
 final class Unix implements Process
@@ -45,8 +46,11 @@ final class Unix implements Process
         $socket->write(
             $this->protocol->encode(
                 new Message\Generic(
-                    MediaType::fromString('text/plain'),
-                    Str::of((string) $this->name)
+                    MediaType::fromString('application/json'),
+                    Str::of(Json::encode([
+                        'address' => (string) $this->address,
+                        'name' => (string) $this->name,
+                    ]))
                 )
             )
         );
