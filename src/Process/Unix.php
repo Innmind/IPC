@@ -65,7 +65,7 @@ final class Unix implements Process
         return new Receiver\UnixClient(
             $this->sockets,
             $this->protocol,
-            $this,
+            $this->name,
             $this->address,
             $timeout
         );

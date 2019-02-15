@@ -27,7 +27,7 @@ class UnixClientTest extends TestCase
             new UnixClient(
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
-                $this->createMock(Process::class),
+                new Process\Name('foo'),
                 new Address('/tmp/foo')
             )
         );
@@ -38,7 +38,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
-            $process = $this->createMock(Process::class),
+            $process = new Process\Name('foo'),
             $address = new Address('/tmp/foo')
         );
         $client = $this->createMock(Client::class);
@@ -84,7 +84,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
-            $this->createMock(Process::class),
+            new Process\Name('foo'),
             $address = new Address('/tmp/foo')
         );
         $client = $this->createMock(Client::class);

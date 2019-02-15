@@ -21,20 +21,20 @@ final class UnixClient implements Receiver
 {
     private $sockets;
     private $protocol;
-    private $process;
+    private $processName;
     private $address;
     private $timeout;
 
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
-        Process $process,
+        Process\Name $processName,
         Address $address,
         ElapsedPeriodInterface $timeout = null
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
-        $this->process = $process;
+        $this->processName = $processName;
         $this->address = $address;
         $this->timeout = new ElapsedPeriod(
             ($timeout ?? new ElapsedPeriod(60000))->milliseconds() // default to 1 minute
@@ -65,7 +65,7 @@ final class UnixClient implements Receiver
                 if ($sockets->get('read')->contains($client)) {
                     $message = $this->protocol->decode($client);
 
-                    $listen($message, $this->process);
+                    $listen($message, $this->processName);
                 }
             } catch (\Throwable $e) {
                 $client->close();
