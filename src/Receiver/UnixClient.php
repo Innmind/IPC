@@ -69,7 +69,6 @@ final class UnixClient implements Receiver
                 }
             } catch (\Throwable $e) {
                 $client->close();
-                $select->unwatch($client);
 
                 throw $e;
             }
