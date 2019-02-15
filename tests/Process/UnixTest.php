@@ -53,20 +53,33 @@ class UnixTest extends TestCase
         $protocol
             ->expects($this->at(0))
             ->method('encode')
+            ->with($this->callback(static function($message): bool {
+                return (string) $message->mediaType() === 'text/plain' &&
+                    (string) $message->content() === 'foo';
+            }))
+            ->willReturn($greeting = Str::of('greeting'));
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
             ->with($message1)
             ->willReturn($frame1 = Str::of(''));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->at(2))
             ->method('encode')
             ->with($message2)
             ->willReturn($frame2 = Str::of(''));
         $client
             ->expects($this->at(0))
             ->method('write')
-            ->with($frame1)
+            ->with($greeting)
             ->will($this->returnSelf());
         $client
             ->expects($this->at(1))
+            ->method('write')
+            ->with($frame1)
+            ->will($this->returnSelf());
+        $client
+            ->expects($this->at(2))
             ->method('write')
             ->with($frame2)
             ->will($this->returnSelf());

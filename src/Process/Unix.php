@@ -12,6 +12,8 @@ use Innmind\IPC\{
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\ElapsedPeriodInterface;
+use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\Immutable\Str;
 
 final class Unix implements Process
 {
@@ -40,6 +42,14 @@ final class Unix implements Process
     public function send(Message ...$messages): void
     {
         $socket = $this->sockets->connectTo($this->address);
+        $socket->write(
+            $this->protocol->encode(
+                new Message\Generic(
+                    MediaType::fromString('text/plain'),
+                    Str::of((string) $this->name)
+                )
+            )
+        );
 
         try {
             foreach ($messages as $message) {
