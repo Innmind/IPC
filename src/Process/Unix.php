@@ -39,14 +39,14 @@ final class Unix implements Process
         return $this->name;
     }
 
-    public function send(Message ...$messages): void
+    public function send(Name $sender, Message ...$messages): void
     {
         $socket = $this->sockets->connectTo($this->address);
         $socket->write(
             $this->protocol->encode(
                 new Message\Generic(
                     MediaType::fromString('text/plain'),
-                    Str::of((string) $this->name)
+                    Str::of((string) $sender)
                 )
             )
         );

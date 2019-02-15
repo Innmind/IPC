@@ -55,7 +55,7 @@ class UnixTest extends TestCase
             ->method('encode')
             ->with($this->callback(static function($message): bool {
                 return (string) $message->mediaType() === 'text/plain' &&
-                    (string) $message->content() === 'foo';
+                    (string) $message->content() === 'sender';
             }))
             ->willReturn($greeting = Str::of('greeting'));
         $protocol
@@ -87,7 +87,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('close');
 
-        $this->assertNull($process->send($message1, $message2));
+        $this->assertNull($process->send(new Name('sender'), $message1, $message2));
     }
 
     public function testListen()
