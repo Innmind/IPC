@@ -7,7 +7,6 @@ use Innmind\IPC\{
     Exception\Stop,
 };
 use Innmind\OperatingSystem\Factory;
-use Innmind\TimeContinuum\Period\Earth\Second;
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -20,5 +19,5 @@ $ipc->listen(new Name('server'))(static function($message, $process) use (&$mess
     $sender = $process;
     throw new Stop;
 });
-$os->process()->halt(new Second(1));
+$ipc->wait($sender);
 $ipc->get($sender)->send(new Name('server'))($messageToSend);

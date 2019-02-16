@@ -15,6 +15,7 @@ require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = bootstrap($os);
+$ipc->wait(new Name('server'));
 $ipc->get(new Name('server'))->send(new Name('client'))(new Message\Generic(
     MediaType::fromString('text/plain'),
     Str::of('hello world')

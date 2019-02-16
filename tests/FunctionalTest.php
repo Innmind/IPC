@@ -5,7 +5,6 @@ namespace Tests\Innmind\IPC;
 
 use Innmind\OperatingSystem\Factory;
 use Innmind\Server\Control\Server\Command;
-use Innmind\TimeContinuum\Period\Earth\Second;
 use PHPUnit\Framework\TestCase;
 
 class FunctionalTest extends TestCase
@@ -18,7 +17,6 @@ class FunctionalTest extends TestCase
             Command::background('php')
                 ->withArgument('fixtures/server.php')
         );
-        $os->process()->halt(new Second(1));
         $output = (string) $processes
             ->execute(
                 Command::foreground('php')

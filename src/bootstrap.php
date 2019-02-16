@@ -22,6 +22,7 @@ function bootstrap(
         $os->sockets(),
         $os->filesystem()->mount($sockets),
         $os->clock(),
+        $os->process(),
         new Protocol\Binary,
         $sockets,
         $selectTimeout

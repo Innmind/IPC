@@ -12,7 +12,10 @@ use Innmind\IPC\{
     Process\Name,
     Exception\LogicException,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Sockets,
+    CurrentProcess,
+};
 use Innmind\Filesystem\{
     Adapter,
     File,
@@ -22,6 +25,8 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    Period\Earth\Millisecond,
+    PointInTimeInterface,
 };
 use Innmind\Immutable\{
     Map,
@@ -39,6 +44,7 @@ class UnixTest extends TestCase
                 $this->createMock(Sockets::class),
                 $this->createMock(Adapter::class),
                 $this->createMock(TimeContinuumInterface::class),
+                $this->createMock(CurrentProcess::class),
                 $this->createMock(Protocol::class),
                 new Path('/tmp/somewhere/'),
                 new ElapsedPeriod(1000)
@@ -52,6 +58,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -89,6 +96,7 @@ class UnixTest extends TestCase
             $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/somewhere/'),
             new ElapsedPeriod(1000)
@@ -110,6 +118,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -140,6 +149,7 @@ class UnixTest extends TestCase
             $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -160,6 +170,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -171,5 +182,85 @@ class UnixTest extends TestCase
         );
 
         $this->assertInstanceOf(Receiver\UnixServer::class, $receiver);
+    }
+
+    public function testWait()
+    {
+        $ipc = new Unix(
+            $this->createMock(Sockets::class),
+            $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
+            $process = $this->createMock(CurrentProcess::class),
+            $this->createMock(Protocol::class),
+            new Path('/tmp/'),
+            new ElapsedPeriod(1000)
+        );
+        $filesystem
+            ->expects($this->exactly(3))
+            ->method('has')
+            ->with('foo.sock')
+            ->will($this->onConsecutiveCalls(false, false, true));
+        $process
+            ->expects($this->exactly(2))
+            ->method('halt')
+            ->with(new Millisecond(1000));
+
+        $this->assertNull($ipc->wait(new Name('foo')));
+    }
+
+    public function testStopWaitingWhenTimeoutExceeded()
+    {
+        $ipc = new Unix(
+            $this->createMock(Sockets::class),
+            $filesystem = $this->createMock(Adapter::class),
+            $clock = $this->createMock(TimeContinuumInterface::class),
+            $process = $this->createMock(CurrentProcess::class),
+            $this->createMock(Protocol::class),
+            new Path('/tmp/'),
+            new ElapsedPeriod(1000)
+        );
+        $timeout = $this->createMock(ElapsedPeriodInterface::class);
+        $filesystem
+            ->expects($this->any())
+            ->method('has')
+            ->with('foo.sock')
+            ->willReturn(false);
+        $process
+            ->expects($this->once())
+            ->method('halt');
+        $clock
+            ->expects($this->at(0))
+            ->method('now')
+            ->willReturn($start = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(1))
+            ->method('now')
+            ->willReturn($firstIteration = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(2))
+            ->method('now')
+            ->willReturn($secondIteration = $this->createMock(PointInTimeInterface::class));
+        $firstIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(false);
+        $secondIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(true);
+
+        $this->assertNull($ipc->wait(new Name('foo'), $timeout));
     }
 }

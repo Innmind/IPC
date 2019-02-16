@@ -14,9 +14,13 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    Period\Earth\Millisecond,
 };
 use Innmind\Filesystem\Adapter;
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Sockets,
+    CurrentProcess,
+};
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\Url\PathInterface;
 use Innmind\Immutable\{
@@ -29,6 +33,7 @@ final class Unix implements IPC
     private $sockets;
     private $filesystem;
     private $clock;
+    private $process;
     private $protocol;
     private $path;
     private $selectTimeout;
@@ -37,6 +42,7 @@ final class Unix implements IPC
         Sockets $sockets,
         Adapter $filesystem,
         TimeContinuumInterface $clock,
+        CurrentProcess $process,
         Protocol $protocol,
         PathInterface $path,
         ElapsedPeriod $selectTimeout
@@ -44,6 +50,7 @@ final class Unix implements IPC
         $this->sockets = $sockets;
         $this->filesystem = $filesystem;
         $this->clock = $clock;
+        $this->process = $process;
         $this->protocol = $protocol;
         $this->path = \rtrim((string) $path, '/');
         $this->selectTimeout = $selectTimeout;
@@ -92,6 +99,26 @@ final class Unix implements IPC
     public function exist(Process\Name $name): bool
     {
         return $this->filesystem->has("$name.sock");
+    }
+
+    public function wait(Process\Name $name, ElapsedPeriodInterface $timeout = null): void
+    {
+        $start = $this->clock->now();
+
+        do {
+            if ($this->exist($name)) {
+                return;
+            }
+
+            if (
+                $timeout instanceof ElapsedPeriodInterface &&
+                $this->clock->now()->elapsedSince($start)->longerThan($timeout)
+            ) {
+                return;
+            }
+
+            $this->process->halt(new Millisecond($this->selectTimeout->milliseconds()));
+        } while (true);
     }
 
     public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver
