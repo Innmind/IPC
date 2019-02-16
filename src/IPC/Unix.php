@@ -63,7 +63,7 @@ final class Unix implements IPC
 
     public function get(Process\Name $name): Process
     {
-        if (!$this->filesystem->has((string) $name)) {
+        if (!$this->exist($name)) {
             throw new LogicException((string) $name);
         }
 
@@ -73,6 +73,11 @@ final class Unix implements IPC
             $this->addressOf((string) $name),
             $name
         );
+    }
+
+    public function exist(Process\Name $name): bool
+    {
+        return $this->filesystem->has((string) $name);
     }
 
     public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver

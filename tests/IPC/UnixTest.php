@@ -122,6 +122,24 @@ class UnixTest extends TestCase
         $this->assertNull($foo->send(new Name('sender')));
     }
 
+    public function testExist()
+    {
+        $ipc = new Unix(
+            $this->createMock(Sockets::class),
+            $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(Protocol::class),
+            new Path('/tmp/')
+        );
+        $filesystem
+            ->expects($this->exactly(2))
+            ->method('has')
+            ->with('foo')
+            ->will($this->onConsecutiveCalls(true, false));
+
+        $this->assertTrue($ipc->exist(new Name('foo')));
+        $this->assertFalse($ipc->exist(new Name('foo')));
+    }
+
     public function testListen()
     {
         $ipc = new Unix(
