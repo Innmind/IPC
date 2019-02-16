@@ -86,7 +86,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->once())
             ->method('has')
-            ->with('foo')
+            ->with('foo.sock')
             ->willReturn(false);
 
         $this->expectException(LogicException::class);
@@ -105,7 +105,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->once())
             ->method('has')
-            ->with('foo')
+            ->with('foo.sock')
             ->willReturn(true);
 
         $foo = $ipc->get(new Name('foo'));
@@ -133,7 +133,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->exactly(2))
             ->method('has')
-            ->with('foo')
+            ->with('foo.sock')
             ->will($this->onConsecutiveCalls(true, false));
 
         $this->assertTrue($ipc->exist(new Name('foo')));

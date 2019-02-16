@@ -77,7 +77,7 @@ final class Unix implements IPC
 
     public function exist(Process\Name $name): bool
     {
-        return $this->filesystem->has((string) $name);
+        return $this->filesystem->has("$name.sock");
     }
 
     public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver
