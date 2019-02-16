@@ -12,6 +12,7 @@ use Innmind\IPC\{
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
 };
@@ -20,6 +21,7 @@ final class Unix implements Process
 {
     private $sockets;
     private $protocol;
+    private $clock;
     private $address;
     private $name;
     private $selectTimeout;
@@ -27,12 +29,14 @@ final class Unix implements Process
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
+        TimeContinuumInterface $clock,
         Address $address,
         Name $name,
         ElapsedPeriod $selectTimeout
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
+        $this->clock = $clock;
         $this->address = $address;
         $this->name = $name;
         $this->selectTimeout = $selectTimeout;
@@ -58,6 +62,7 @@ final class Unix implements Process
         return new Receiver\UnixClient(
             $this->sockets,
             $this->protocol,
+            $this->clock,
             $this->name,
             $this->address,
             $this->selectTimeout,

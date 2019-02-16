@@ -13,7 +13,12 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\TimeContinuum\ElapsedPeriod;
+use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
+    ElapsedPeriodInterface,
+    ElapsedPeriod,
+    PointInTimeInterface,
+};
 use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Socket\{
     Address\Unix as Address,
@@ -34,6 +39,7 @@ class UnixServerTest extends TestCase
             new UnixServer(
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
+                $this->createMock(TimeContinuumInterface::class),
                 new Address('/tmp/foo.sock'),
                 new Process\Name('foo'),
                 new ElapsedPeriod(1000)
@@ -46,6 +52,7 @@ class UnixServerTest extends TestCase
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             $address = new Address('/tmp/foo.sock'),
             $name = new Process\Name('foo'),
             new ElapsedPeriod(1000)
@@ -109,6 +116,7 @@ class UnixServerTest extends TestCase
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo.sock'),
             new Process\Name('foo'),
             new ElapsedPeriod(1000)
@@ -132,6 +140,7 @@ class UnixServerTest extends TestCase
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo.sock'),
             new Process\Name('foo'),
             new ElapsedPeriod(1000)
@@ -148,5 +157,56 @@ class UnixServerTest extends TestCase
         } catch (RuntimeException $e) {
             $this->assertSame($expected, $e->getPrevious());
         }
+    }
+
+    public function testStopWhenNoActivityInGivenPeriod()
+    {
+        $receive = new UnixServer(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            $clock = $this->createMock(TimeContinuumInterface::class),
+            $address = new Address('/tmp/foo.sock'),
+            new Process\Name('foo'),
+            new ElapsedPeriod(10),
+            $timeout = $this->createMock(ElapsedPeriodInterface::class)
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('open')
+            ->willReturn(Server\Unix::recoverable($address));
+        $clock
+            ->expects($this->at(0))
+            ->method('now')
+            ->willReturn($start = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(1))
+            ->method('now')
+            ->willReturn($firstIteration = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(2))
+            ->method('now')
+            ->willReturn($secondIteration = $this->createMock(PointInTimeInterface::class));
+        $firstIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(false);
+        $secondIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(true);
+
+        $this->assertNull($receive(function(){}));
     }
 }

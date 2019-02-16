@@ -21,6 +21,7 @@ use Innmind\Stream\{
     Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
 };
@@ -29,6 +30,7 @@ final class UnixClient implements Receiver
 {
     private $sockets;
     private $protocol;
+    private $clock;
     private $processName;
     private $address;
     private $selectTimeout;
@@ -37,6 +39,7 @@ final class UnixClient implements Receiver
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
+        TimeContinuumInterface $clock,
         Process\Name $processName,
         Address $address,
         ElapsedPeriod $selectTimeout,
@@ -44,6 +47,7 @@ final class UnixClient implements Receiver
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
+        $this->clock = $clock;
         $this->processName = $processName;
         $this->address = $address;
         $this->selectTimeout = $selectTimeout;
@@ -69,6 +73,8 @@ final class UnixClient implements Receiver
     {
         $client = $this->sockets->connectTo($this->address);
         $select = (new Select($this->selectTimeout))->forRead($client);
+        $start = $this->clock->now();
+        $messageReceived = false;
 
         do {
             $sockets = $select();
@@ -78,13 +84,20 @@ final class UnixClient implements Receiver
                     $message = $this->protocol->decode($client);
 
                     $listen($message, $this->processName);
+                    $messageReceived = true;
+                } else if (
+                    $this->timeout instanceof ElapsedPeriodInterface &&
+                    !$messageReceived &&
+                    $this->clock->now()->elapsedSince($start)->longerThan($this->timeout)
+                ) {
+                    // stop execution when no message received in the given period
+                    throw new Stop;
                 }
             } catch (\Throwable $e) {
                 $client->close();
 
                 throw $e;
             }
-
         } while (true);
     }
 }

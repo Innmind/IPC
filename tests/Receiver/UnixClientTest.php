@@ -14,10 +14,16 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\TimeContinuum\ElapsedPeriod;
+use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
+    ElapsedPeriodInterface,
+    ElapsedPeriod,
+    PointInTimeInterface,
+};
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
+    Server,
     Exception\Exception as SocketException,
 };
 use Innmind\Stream\Exception\Exception as StreamException;
@@ -32,6 +38,7 @@ class UnixClientTest extends TestCase
             new UnixClient(
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
+                $this->createMock(TimeContinuumInterface::class),
                 new Process\Name('foo'),
                 new Address('/tmp/foo'),
                 new ElapsedPeriod(1000)
@@ -44,6 +51,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             $process = new Process\Name('foo'),
             $address = new Address('/tmp/foo'),
             new ElapsedPeriod(1000)
@@ -91,6 +99,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Process\Name('foo'),
             $address = new Address('/tmp/foo'),
             new ElapsedPeriod(1000)
@@ -127,6 +136,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Process\Name('foo'),
             $address = new Address('/tmp/foo'),
             new ElapsedPeriod(1000)
@@ -159,6 +169,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Process\Name('foo'),
             new Address('/tmp/foo'),
             new ElapsedPeriod(1000)
@@ -182,6 +193,7 @@ class UnixClientTest extends TestCase
         $receive = new UnixClient(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Process\Name('foo'),
             new Address('/tmp/foo'),
             new ElapsedPeriod(1000)
@@ -198,5 +210,58 @@ class UnixClientTest extends TestCase
         } catch (RuntimeException $e) {
             $this->assertSame($expected, $e->getPrevious());
         }
+    }
+
+    public function testStopWhenNoMessagesReceivedInGivenPeriod()
+    {
+        $server = Server\Unix::recoverable($address = new Address('/tmp/foo'));
+
+        $receive = new UnixClient(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            $clock = $this->createMock(TimeContinuumInterface::class),
+            new Process\Name('foo'),
+            $address,
+            new ElapsedPeriod(10),
+            $timeout = $this->createMock(ElapsedPeriodInterface::class)
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->willReturn(new Client\Unix($address));
+        $clock
+            ->expects($this->at(0))
+            ->method('now')
+            ->willReturn($start = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(1))
+            ->method('now')
+            ->willReturn($firstIteration = $this->createMock(PointInTimeInterface::class));
+        $clock
+            ->expects($this->at(2))
+            ->method('now')
+            ->willReturn($secondIteration = $this->createMock(PointInTimeInterface::class));
+        $firstIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(false);
+        $secondIteration
+            ->expects($this->once())
+            ->method('elapsedSince')
+            ->with($start)
+            ->willReturn($duration = $this->createMock(ElapsedPeriodInterface::class));
+        $duration
+            ->expects($this->once())
+            ->method('longerThan')
+            ->with($timeout)
+            ->willReturn(true);
+
+        $this->assertNull($receive(function(){}));
     }
 }

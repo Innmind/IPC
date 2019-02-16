@@ -23,6 +23,7 @@ use Innmind\Stream\{
     Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
 };
@@ -32,6 +33,7 @@ final class UnixServer implements Receiver
 {
     private $sockets;
     private $protocol;
+    private $clock;
     private $address;
     private $name;
     private $selectTimeout;
@@ -41,6 +43,7 @@ final class UnixServer implements Receiver
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
+        TimeContinuumInterface $clock,
         Address $address,
         Process\Name $name,
         ElapsedPeriod $selectTimeout,
@@ -48,6 +51,7 @@ final class UnixServer implements Receiver
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
+        $this->clock = $clock;
         $this->address = $address;
         $this->name = (string) $name;
         $this->selectTimeout = $selectTimeout;
@@ -73,11 +77,17 @@ final class UnixServer implements Receiver
     {
         $server = $this->sockets->open($this->address);
         $select = (new Select($this->selectTimeout))->forRead($server);
+        $start = $this->clock->now();
+        $hadActivity = false;
 
         do {
             $sockets = $select();
 
             try {
+                if (!$sockets->get('read')->empty()) {
+                    $hadActivity = true;
+                }
+
                 if ($sockets->get('read')->contains($server)) {
                     $connection = $server->accept();
                     $select = $select->forRead($connection);
@@ -113,6 +123,15 @@ final class UnixServer implements Receiver
                             return $select;
                         }
                     );
+
+                if (
+                    $this->timeout instanceof ElapsedPeriodInterface &&
+                    !$hadActivity &&
+                    $this->clock->now()->elapsedSince($start)->longerThan($this->timeout)
+                ) {
+                    // stop execution when no activity in the given period
+                    throw new Stop;
+                }
             } catch (\Throwable $e) {
                 $this->close($server);
 

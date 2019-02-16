@@ -18,6 +18,7 @@ use Innmind\Socket\{
     Client,
 };
 use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
 };
@@ -31,6 +32,7 @@ class UnixTest extends TestCase
         $process = new Unix(
             $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo'),
             $name = new Name('foo'),
             new ElapsedPeriod(1000)
@@ -45,6 +47,7 @@ class UnixTest extends TestCase
         $process = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             $address = new Address('/tmp/foo'),
             new Name('foo'),
             new ElapsedPeriod(1000)
@@ -104,6 +107,7 @@ class UnixTest extends TestCase
         $process = new Unix(
             $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo'),
             new Name('foo'),
             new ElapsedPeriod(1000)

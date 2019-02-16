@@ -21,6 +21,7 @@ function bootstrap(
     return new IPC\Unix(
         $os->sockets(),
         $os->filesystem()->mount($sockets),
+        $os->clock(),
         new Protocol\Binary,
         $sockets,
         $selectTimeout

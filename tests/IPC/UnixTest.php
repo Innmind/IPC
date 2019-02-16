@@ -19,6 +19,7 @@ use Innmind\Filesystem\{
 };
 use Innmind\Url\Path;
 use Innmind\TimeContinuum\{
+    TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
 };
@@ -37,6 +38,7 @@ class UnixTest extends TestCase
             new Unix(
                 $this->createMock(Sockets::class),
                 $this->createMock(Adapter::class),
+                $this->createMock(TimeContinuumInterface::class),
                 $this->createMock(Protocol::class),
                 new Path('/tmp/somewhere/'),
                 new ElapsedPeriod(1000)
@@ -49,6 +51,7 @@ class UnixTest extends TestCase
         $ipc = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -85,6 +88,7 @@ class UnixTest extends TestCase
         $ipc = new Unix(
             $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/somewhere/'),
             new ElapsedPeriod(1000)
@@ -105,6 +109,7 @@ class UnixTest extends TestCase
         $ipc = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -134,6 +139,7 @@ class UnixTest extends TestCase
         $ipc = new Unix(
             $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
@@ -153,6 +159,7 @@ class UnixTest extends TestCase
         $ipc = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
+            $this->createMock(TimeContinuumInterface::class),
             $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
