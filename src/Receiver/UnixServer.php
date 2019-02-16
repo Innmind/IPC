@@ -135,13 +135,13 @@ final class UnixServer implements Receiver
 
     private function close(Server $server): void
     {
-        $server->close();
-        $this->filesystem->remove($this->name);
         $this->processes = $this
             ->processes
             ->foreach(static function(Connection $connection): void {
                 $connection->close();
             })
             ->clear();
+        $server->close();
+        $this->filesystem->remove($this->name);
     }
 }
