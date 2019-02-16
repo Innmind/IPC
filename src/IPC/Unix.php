@@ -10,7 +10,10 @@ use Innmind\IPC\{
     Protocol,
     Exception\LogicException,
 };
-use Innmind\TimeContinuum\ElapsedPeriodInterface;
+use Innmind\TimeContinuum\{
+    ElapsedPeriodInterface,
+    ElapsedPeriod,
+};
 use Innmind\Filesystem\Adapter;
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
@@ -26,17 +29,20 @@ final class Unix implements IPC
     private $filesystem;
     private $protocol;
     private $path;
+    private $selectTimeout;
 
     public function __construct(
         Sockets $sockets,
         Adapter $filesystem,
         Protocol $protocol,
-        PathInterface $path
+        PathInterface $path,
+        ElapsedPeriod $selectTimeout
     ) {
         $this->sockets = $sockets;
         $this->filesystem = $filesystem;
         $this->protocol = $protocol;
         $this->path = \rtrim((string) $path, '/');
+        $this->selectTimeout = $selectTimeout;
     }
 
     /**
@@ -55,7 +61,8 @@ final class Unix implements IPC
                         $this->sockets,
                         $this->protocol,
                         $this->addressOf($name),
-                        new Process\Name($name)
+                        new Process\Name($name),
+                        $this->selectTimeout
                     ));
                 }
             );
@@ -71,7 +78,8 @@ final class Unix implements IPC
             $this->sockets,
             $this->protocol,
             $this->addressOf((string) $name),
-            $name
+            $name,
+            $this->selectTimeout
         );
     }
 
@@ -87,6 +95,7 @@ final class Unix implements IPC
             $this->protocol,
             $this->addressOf((string) $self),
             $self,
+            $this->selectTimeout,
             $timeout
         );
     }

@@ -14,6 +14,7 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
+use Innmind\TimeContinuum\ElapsedPeriod;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
@@ -32,7 +33,8 @@ class UnixClientTest extends TestCase
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
                 new Process\Name('foo'),
-                new Address('/tmp/foo')
+                new Address('/tmp/foo'),
+                new ElapsedPeriod(1000)
             )
         );
     }
@@ -43,7 +45,8 @@ class UnixClientTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
             $process = new Process\Name('foo'),
-            $address = new Address('/tmp/foo')
+            $address = new Address('/tmp/foo'),
+            new ElapsedPeriod(1000)
         );
         $client = $this->createMock(Client::class);
         $client
@@ -89,7 +92,8 @@ class UnixClientTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
             new Process\Name('foo'),
-            $address = new Address('/tmp/foo')
+            $address = new Address('/tmp/foo'),
+            new ElapsedPeriod(1000)
         );
         $client = $this->createMock(Client::class);
         $client
@@ -124,7 +128,8 @@ class UnixClientTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Process\Name('foo'),
-            $address = new Address('/tmp/foo')
+            $address = new Address('/tmp/foo'),
+            new ElapsedPeriod(1000)
         );
         $client = $this->createMock(Client::class);
         $client
@@ -155,7 +160,8 @@ class UnixClientTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Process\Name('foo'),
-            new Address('/tmp/foo')
+            new Address('/tmp/foo'),
+            new ElapsedPeriod(1000)
         );
         $sockets
             ->expects($this->once())
@@ -177,7 +183,8 @@ class UnixClientTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Process\Name('foo'),
-            new Address('/tmp/foo')
+            new Address('/tmp/foo'),
+            new ElapsedPeriod(1000)
         );
         $sockets
             ->expects($this->once())

@@ -17,7 +17,10 @@ use Innmind\Socket\{
     Address\Unix as Address,
     Client,
 };
-use Innmind\TimeContinuum\ElapsedPeriodInterface;
+use Innmind\TimeContinuum\{
+    ElapsedPeriodInterface,
+    ElapsedPeriod,
+};
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -29,7 +32,8 @@ class UnixTest extends TestCase
             $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo'),
-            $name = new Name('foo')
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
         );
 
         $this->assertInstanceOf(Process::class, $process);
@@ -42,7 +46,8 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
             $address = new Address('/tmp/foo'),
-            new Name('foo')
+            new Name('foo'),
+            new ElapsedPeriod(1000)
         );
         $message1 = $this->createMock(Message::class);
         $message2 = $this->createMock(Message::class);
@@ -100,7 +105,8 @@ class UnixTest extends TestCase
             $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo'),
-            new Name('foo')
+            new Name('foo'),
+            new ElapsedPeriod(1000)
         );
         $timeout = $this->createMock(ElapsedPeriodInterface::class);
 

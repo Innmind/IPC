@@ -34,6 +34,7 @@ final class UnixServer implements Receiver
     private $protocol;
     private $address;
     private $name;
+    private $selectTimeout;
     private $timeout;
     private $processes;
 
@@ -42,15 +43,15 @@ final class UnixServer implements Receiver
         Protocol $protocol,
         Address $address,
         Process\Name $name,
+        ElapsedPeriod $selectTimeout,
         ElapsedPeriodInterface $timeout = null
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
         $this->address = $address;
         $this->name = (string) $name;
-        $this->timeout = new ElapsedPeriod(
-            ($timeout ?? new ElapsedPeriod(60000))->milliseconds() // default to 1 minute
-        );
+        $this->selectTimeout = $selectTimeout;
+        $this->timeout = $timeout;
         $this->processes = Map::of(Connection::class, Process\Name::class);
     }
 
@@ -71,7 +72,7 @@ final class UnixServer implements Receiver
     private function loop(callable $listen): void
     {
         $server = $this->sockets->open($this->address);
-        $select = (new Select($this->timeout))->forRead($server);
+        $select = (new Select($this->selectTimeout))->forRead($server);
 
         do {
             $sockets = $select();

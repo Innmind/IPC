@@ -13,6 +13,7 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
+use Innmind\TimeContinuum\ElapsedPeriod;
 use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Socket\{
     Address\Unix as Address,
@@ -34,7 +35,8 @@ class UnixServerTest extends TestCase
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
                 new Address('/tmp/foo.sock'),
-                new Process\Name('foo')
+                new Process\Name('foo'),
+                new ElapsedPeriod(1000)
             )
         );
     }
@@ -45,7 +47,8 @@ class UnixServerTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $protocol = $this->createMock(Protocol::class),
             $address = new Address('/tmp/foo.sock'),
-            $name = new Process\Name('foo')
+            $name = new Process\Name('foo'),
+            new ElapsedPeriod(1000)
         );
         $sockets
             ->expects($this->once())
@@ -107,7 +110,8 @@ class UnixServerTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo.sock'),
-            new Process\Name('foo')
+            new Process\Name('foo'),
+            new ElapsedPeriod(1000)
         );
         $sockets
             ->expects($this->once())
@@ -129,7 +133,8 @@ class UnixServerTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo.sock'),
-            new Process\Name('foo')
+            new Process\Name('foo'),
+            new ElapsedPeriod(1000)
         );
         $sockets
             ->expects($this->once())

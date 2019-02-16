@@ -31,6 +31,7 @@ final class UnixClient implements Receiver
     private $protocol;
     private $processName;
     private $address;
+    private $selectTimeout;
     private $timeout;
 
     public function __construct(
@@ -38,15 +39,15 @@ final class UnixClient implements Receiver
         Protocol $protocol,
         Process\Name $processName,
         Address $address,
+        ElapsedPeriod $selectTimeout,
         ElapsedPeriodInterface $timeout = null
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
         $this->processName = $processName;
         $this->address = $address;
-        $this->timeout = new ElapsedPeriod(
-            ($timeout ?? new ElapsedPeriod(60000))->milliseconds() // default to 1 minute
-        );
+        $this->selectTimeout = $selectTimeout;
+        $this->timeout = $timeout;
     }
 
     /**
@@ -67,7 +68,7 @@ final class UnixClient implements Receiver
     private function loop(callable $listen): void
     {
         $client = $this->sockets->connectTo($this->address);
-        $select = (new Select($this->timeout))->forRead($client);
+        $select = (new Select($this->selectTimeout))->forRead($client);
 
         do {
             $sockets = $select();
