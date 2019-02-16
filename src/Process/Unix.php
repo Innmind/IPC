@@ -7,13 +7,11 @@ use Innmind\IPC\{
     Process,
     Protocol,
     Receiver,
-    Message,
+    Sender,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\ElapsedPeriodInterface;
-use Innmind\Filesystem\MediaType\MediaType;
-use Innmind\Immutable\Str;
 
 final class Unix implements Process
 {
@@ -39,25 +37,14 @@ final class Unix implements Process
         return $this->name;
     }
 
-    public function send(Name $sender, Message ...$messages): void
+    public function send(Name $sender): Sender
     {
-        $socket = $this->sockets->connectTo($this->address);
-        $socket->write(
-            $this->protocol->encode(
-                new Message\Generic(
-                    MediaType::fromString('text/plain'),
-                    Str::of((string) $sender)
-                )
-            )
+        return new Sender\Unix(
+            $this->sockets,
+            $this->protocol,
+            $this->address,
+            $sender
         );
-
-        try {
-            foreach ($messages as $message) {
-                $socket->write($this->protocol->encode($message));
-            }
-        } finally {
-            $socket->close();
-        }
     }
 
     public function listen(ElapsedPeriodInterface $timeout = null): Receiver

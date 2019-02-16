@@ -72,7 +72,7 @@ class UnixTest extends TestCase
                 return (string) $address === '/tmp/foo.sock';
             }));
 
-        $this->assertNull($foo->send(new Name('sender')));
+        $this->assertNull($foo->send(new Name('sender'))());
     }
 
     public function testThrowWhenGettingUnknownProcess()
@@ -119,7 +119,7 @@ class UnixTest extends TestCase
                 return (string) $address === '/tmp/foo.sock';
             }));
 
-        $this->assertNull($foo->send(new Name('sender')));
+        $this->assertNull($foo->send(new Name('sender'))());
     }
 
     public function testExist()

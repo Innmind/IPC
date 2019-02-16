@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Receiver,
+    Sender,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -87,7 +88,10 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('close');
 
-        $this->assertNull($process->send(new Name('sender'), $message1, $message2));
+        $send = $process->send(new Name('sender'));
+
+        $this->assertInstanceOf(Sender\Unix::class, $send);
+        $this->assertNull($send($message1, $message2));
     }
 
     public function testListen()
