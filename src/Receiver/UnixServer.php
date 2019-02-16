@@ -12,7 +12,6 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\Filesystem\Adapter;
 use Innmind\Socket\{
     Address\Unix as Address,
     Server,
@@ -32,7 +31,6 @@ use Innmind\Immutable\Map;
 final class UnixServer implements Receiver
 {
     private $sockets;
-    private $filesystem;
     private $protocol;
     private $address;
     private $name;
@@ -41,14 +39,12 @@ final class UnixServer implements Receiver
 
     public function __construct(
         Sockets $sockets,
-        Adapter $filesystem,
         Protocol $protocol,
         Address $address,
         Process\Name $name,
         ElapsedPeriodInterface $timeout = null
     ) {
         $this->sockets = $sockets;
-        $this->filesystem = $filesystem;
         $this->protocol = $protocol;
         $this->address = $address;
         $this->name = (string) $name;
@@ -142,6 +138,5 @@ final class UnixServer implements Receiver
             })
             ->clear();
         $server->close();
-        $this->filesystem->remove($this->name);
     }
 }

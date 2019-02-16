@@ -84,7 +84,6 @@ final class Unix implements IPC
     {
         return new Receiver\UnixServer(
             $this->sockets,
-            $this->filesystem,
             $this->protocol,
             $this->addressOf((string) $self),
             $self,

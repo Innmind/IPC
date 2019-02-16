@@ -13,10 +13,7 @@ use Innmind\IPC\{
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\Filesystem\{
-    Adapter,
-    MediaType\MediaType,
-};
+use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Socket\{
     Address\Unix as Address,
     Server,
@@ -35,7 +32,6 @@ class UnixServerTest extends TestCase
             Receiver::class,
             new UnixServer(
                 $this->createMock(Sockets::class),
-                $this->createMock(Adapter::class),
                 $this->createMock(Protocol::class),
                 new Address('/tmp/foo.sock'),
                 new Process\Name('foo')
@@ -47,7 +43,6 @@ class UnixServerTest extends TestCase
     {
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
-            $filesystem = $this->createMock(Adapter::class),
             $protocol = $this->createMock(Protocol::class),
             $address = new Address('/tmp/foo.sock'),
             $name = new Process\Name('foo')
@@ -93,10 +88,6 @@ class UnixServerTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->willReturn($message = $this->createMock(Message::class));
-        $filesystem
-            ->expects($this->once())
-            ->method('remove')
-            ->with('foo');
 
         $count = 0;
         $this->assertNull($receive(function($a, $b) use ($message, &$count): void {
@@ -114,7 +105,6 @@ class UnixServerTest extends TestCase
     {
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Adapter::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo.sock'),
             new Process\Name('foo')
@@ -137,7 +127,6 @@ class UnixServerTest extends TestCase
     {
         $receive = new UnixServer(
             $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Adapter::class),
             $this->createMock(Protocol::class),
             new Address('/tmp/foo.sock'),
             new Process\Name('foo')
