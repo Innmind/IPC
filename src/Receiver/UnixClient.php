@@ -9,10 +9,17 @@ use Innmind\IPC\{
     Process,
     Exception\NoMessage,
     Exception\Stop,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\Socket\Address\Unix as Address;
-use Innmind\Stream\Select;
+use Innmind\Socket\{
+    Address\Unix as Address,
+    Exception\Exception as Socket,
+};
+use Innmind\Stream\{
+    Select,
+    Exception\Exception as Stream,
+};
 use Innmind\TimeContinuum\{
     ElapsedPeriodInterface,
     ElapsedPeriod,
@@ -53,6 +60,8 @@ final class UnixClient implements Receiver
             // the other process closed the connection
         } catch (Stop $e) {
             // do nothing when user want to stop listening
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
         }
     }
     private function loop(callable $listen): void

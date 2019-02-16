@@ -8,12 +8,15 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Process\Name,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
+    Exception\Exception as Socket,
 };
+use Innmind\Stream\Exception\Exception as Stream;
 use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
@@ -39,10 +42,14 @@ final class Unix implements Sender
 
     public function __invoke(Message ...$messages): void
     {
-        $socket = $this->socket();
+        try {
+            $socket = $this->socket();
 
-        foreach ($messages as $message) {
-            $socket->write($this->protocol->encode($message));
+            foreach ($messages as $message) {
+                $socket->write($this->protocol->encode($message));
+            }
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
         }
     }
 

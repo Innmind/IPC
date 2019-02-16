@@ -9,6 +9,7 @@ use Innmind\IPC\{
     Process,
     Exception\NoMessage,
     Exception\Stop,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Filesystem\Adapter;
@@ -16,8 +17,12 @@ use Innmind\Socket\{
     Address\Unix as Address,
     Server,
     Server\Connection,
+    Exception\Exception as Socket,
 };
-use Innmind\Stream\Select;
+use Innmind\Stream\{
+    Select,
+    Exception\Exception as Stream,
+};
 use Innmind\TimeContinuum\{
     ElapsedPeriodInterface,
     ElapsedPeriod,
@@ -62,6 +67,8 @@ final class UnixServer implements Receiver
             $this->loop($listen);
         } catch (Stop $e) {
             // stop receiving messages
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
         }
     }
 

@@ -9,12 +9,15 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Process\Name,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
+    Exception\Exception as SocketException,
 };
+use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -153,5 +156,49 @@ class UnixTest extends TestCase
 
         $this->assertNull($send($message1));
         $this->assertNull($send($message2));
+    }
+
+    public function testWrapStreamException()
+    {
+        $send = new Unix(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            new Address('/tmp/foo'),
+            new Name('foo')
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+
+        try {
+            $send();
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
+    }
+
+    public function testWrapSocketException()
+    {
+        $send = new Unix(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            new Address('/tmp/foo'),
+            new Name('foo')
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->will($this->throwException($expected = $this->createMock(SocketException::class)));
+
+        try {
+            $send();
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
     }
 }

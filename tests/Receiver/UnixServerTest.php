@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Process,
     Message,
     Exception\Stop,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Filesystem\{
@@ -20,7 +21,9 @@ use Innmind\Socket\{
     Address\Unix as Address,
     Server,
     Server\Connection,
+    Exception\Exception as SocketException,
 };
+use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -105,5 +108,51 @@ class UnixServerTest extends TestCase
             throw new Stop;
         }));
         $this->assertSame(1, $count);
+    }
+
+    public function testWrapStreamException()
+    {
+        $receive = new UnixServer(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Adapter::class),
+            $this->createMock(Protocol::class),
+            new Address('/tmp/foo.sock'),
+            new Process\Name('foo')
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('open')
+            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+
+        try {
+            $receive(function(){});
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
+    }
+
+    public function testWrapSocketException()
+    {
+        $receive = new UnixServer(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Adapter::class),
+            $this->createMock(Protocol::class),
+            new Address('/tmp/foo.sock'),
+            new Process\Name('foo')
+        );
+        $sockets
+            ->expects($this->once())
+            ->method('open')
+            ->will($this->throwException($expected = $this->createMock(SocketException::class)));
+
+        try {
+            $receive(function(){});
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
     }
 }
