@@ -8,6 +8,7 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Exception\NoMessage,
+    Exception\InvalidMessage,
 };
 use Innmind\Filesystem\{
     MediaType\MediaType,
@@ -35,7 +36,7 @@ class BinaryTest extends TestCase
 
         $this->assertInstanceOf(Str::class, $binary);
         $this->assertSame(
-            \pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}',
+            \pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE),
             (string) $binary
         );
     }
@@ -43,7 +44,7 @@ class BinaryTest extends TestCase
     public function testDecode()
     {
         $protocol = new Binary;
-        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}baz');
+        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE).'baz');
 
         $message = $protocol->decode($stream);
 
@@ -60,5 +61,27 @@ class BinaryTest extends TestCase
         $this->expectException(NoMessage::class);
 
         $protocol->decode(new StringStream(''));
+    }
+
+    public function testThrowWhenMessageContentNotOfExceptedSize()
+    {
+        $protocol = new Binary;
+        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏'.\pack('C', 0xCE).'baz');
+
+        $this->expectException(InvalidMessage::class);
+        $this->expectExceptionMessage('{"foo":"bar🙏'.\pack('C', 0xCE).'b');
+
+        $protocol->decode($stream);
+    }
+
+    public function testThrowWhenMessageNotEndedWithSpecialCharacter()
+    {
+        $protocol = new Binary;
+        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}baz');
+
+        $this->expectException(InvalidMessage::class);
+        $this->expectExceptionMessage('{"foo":"bar🙏"}');
+
+        $protocol->decode($stream);
     }
 }
