@@ -8,6 +8,7 @@ use Innmind\IPC\{
     Message,
     Exception\MessageContentTooLong,
     Exception\NoMessage,
+    Exception\InvalidMessage,
 };
 use Innmind\Stream\Readable;
 use Innmind\Filesystem\MediaType\MediaType;
@@ -24,11 +25,12 @@ final class Binary implements Protocol
             throw new MessageContentTooLong((string) $content->length());
         }
 
-        return Str::of('%s%s%s%s')->sprintf(
+        return Str::of('%s%s%s%s%s')->sprintf(
             \pack('n', $mediaType->length()),
             $mediaType,
             \pack('N', $content->length()),
-            $content
+            $content,
+            \pack('C', $this->end())
         );
     }
 
@@ -47,10 +49,23 @@ final class Binary implements Protocol
         $mediaType = $stream->read($mediaTypeLength);
         [, $contentLength] = \unpack('N', (string) $stream->read(4));
         $content = $stream->read($contentLength);
+        [, $end] = \unpack('C', (string) $stream->read(1));
+
+        if (
+            $content->toEncoding('ASCII')->length() !== $contentLength ||
+            $end !== $this->end()
+        ) {
+            throw new InvalidMessage((string) $content);
+        }
 
         return new Message\Generic(
             MediaType::fromString((string) $mediaType),
             $content
         );
+    }
+
+    private function end(): int
+    {
+        return 0xCE;
     }
 }

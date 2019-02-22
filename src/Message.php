@@ -10,4 +10,5 @@ interface Message
 {
     public function mediaType(): MediaType;
     public function content(): Str;
+    public function equals(self $message): bool;
 }

@@ -9,18 +9,36 @@ use Innmind\IPC\{
     Process,
     Protocol,
     Message,
-    Receiver,
-    Sender,
+    Message\ConnectionStart,
+    Message\ConnectionStartOk,
+    Message\ConnectionClose,
+    Message\ConnectionCloseOk,
+    Message\Heartbeat,
+    Exception\FailedToConnect,
+    Exception\ConnectionClosed,
+    Exception\InvalidConnectionClose,
+    Exception\RuntimeException,
+    Exception\Timedout,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Factory,
+    Sockets,
+};
+use Innmind\Server\Control\Server\{
+    Command,
+    Signal,
+};
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
+    Exception\Exception as SocketException,
 };
+use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    PointInTimeInterface,
 };
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
@@ -29,11 +47,38 @@ class UnixTest extends TestCase
 {
     public function testInterface()
     {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
         $process = new Unix(
-            $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
+            $sockets,
+            $protocol,
             $this->createMock(TimeContinuumInterface::class),
-            new Address('/tmp/foo'),
+            $address,
             $name = new Name('foo'),
             new ElapsedPeriod(1000)
         );
@@ -42,80 +87,626 @@ class UnixTest extends TestCase
         $this->assertSame($name, $process->name());
     }
 
-    public function testSendMessages()
+    public function testThrowWhenFailedConnectionStart()
     {
-        $process = new Unix(
-            $sockets = $this->createMock(Sockets::class),
-            $protocol = $this->createMock(Protocol::class),
-            $this->createMock(TimeContinuumInterface::class),
-            $address = new Address('/tmp/foo'),
-            new Name('foo'),
-            new ElapsedPeriod(1000)
-        );
-        $message1 = $this->createMock(Message::class);
-        $message2 = $this->createMock(Message::class);
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
         $sockets
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($client = $this->createMock(Client::class));
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with($this->callback(static function($message): bool {
-                return (string) $message->mediaType() === 'text/plain' &&
-                    (string) $message->content() === 'sender';
-            }))
-            ->willReturn($greeting = Str::of('greeting'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('encode')
-            ->with($message1)
-            ->willReturn($frame1 = Str::of(''));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with($message2)
-            ->willReturn($frame2 = Str::of(''));
-        $client
-            ->expects($this->at(0))
-            ->method('write')
-            ->with($greeting)
-            ->will($this->returnSelf());
-        $client
-            ->expects($this->at(1))
-            ->method('write')
-            ->with($frame1)
-            ->will($this->returnSelf());
-        $client
-            ->expects($this->at(2))
-            ->method('write')
-            ->with($frame2)
-            ->will($this->returnSelf());
-        $client
             ->expects($this->once())
-            ->method('close');
+            ->method('decode')
+            ->with($socket)
+            ->willReturn($this->createMock(Message::class));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
 
-        $send = $process->send(new Name('sender'));
+        $this->expectException(FailedToConnect::class);
+        $this->expectExceptionMessage('foo');
 
-        $this->assertInstanceOf(Sender\Unix::class, $send);
-        $this->assertNull($send($message1, $message2));
-    }
-
-    public function testListen()
-    {
-        $process = new Unix(
-            $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
+        new Unix(
+            $sockets,
+            $protocol,
             $this->createMock(TimeContinuumInterface::class),
-            new Address('/tmp/foo'),
+            $address,
             new Name('foo'),
             new ElapsedPeriod(1000)
         );
-        $timeout = $this->createMock(ElapsedPeriodInterface::class);
+    }
 
-        $receiver = $process->listen($timeout);
+    public function testSend()
+    {
+        $message = $this->createMock(Message::class);
 
-        $this->assertInstanceOf(Receiver\UnixClient::class, $receiver);
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with($message)
+            ->willReturn(Str::of('message-to-send'));
+        $socket
+            ->method('write')
+            ->with($this->logicalOr(
+                $this->equalTo(Str::of('start-ok')),
+                $this->equalTo(Str::of('message-to-send'))
+            ));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertNull($process->send($message));
+    }
+
+    public function testWrapStreamExceptionWhenErrorAtSent()
+    {
+        $message = $this->createMock(Message::class);
+
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with($message)
+            ->will($this->throwException($this->createMock(StreamException::class)));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->expectException(RuntimeException::class);
+
+        $process->send($message);
+    }
+
+    public function testWrapSocketExceptionWhenErrorAtSent()
+    {
+        $message = $this->createMock(Message::class);
+
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with($message)
+            ->will($this->throwException($this->createMock(SocketException::class)));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->expectException(RuntimeException::class);
+
+        $process->send($message);
+    }
+
+    public function testDoNothingWhenTryingToSendOnClosedSocket()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+        $socket
+            ->method('closed')
+            ->will($this->onConsecutiveCalls(
+                false,
+                false,
+                true
+            ));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertNull($process->send($this->createMock(Message::class)));
+    }
+
+    public function testThrowWhenWaitingOnClosedSocket()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+        $socket
+            ->method('closed')
+            ->will($this->onConsecutiveCalls(
+                false,
+                false,
+                true
+            ));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        try {
+            $process->wait();
+
+            $this->fail('it should throw');
+        } catch (ConnectionClosed $e) {
+            $this->assertTrue($process->closed());
+        }
+    }
+
+    public function testWait()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn($message = $this->createMock(Message::class));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertSame($message, $process->wait());
+    }
+
+    public function testDiscardHeartbeatWhenWaiting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new Heartbeat);
+        $protocol
+            ->expects($this->at(3))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn($message = $this->createMock(Message::class));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertSame($message, $process->wait());
+    }
+
+    public function testWrapStreamExceptionWhenErrorAtWait()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->will($this->throwException($this->createMock(StreamException::class)));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->expectException(RuntimeException::class);
+
+        $process->wait();
+    }
+
+    public function testWrapSocketExceptionWhenErrorAtWait()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->will($this->throwException($this->createMock(SocketException::class)));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->expectException(RuntimeException::class);
+
+        $process->wait();
+    }
+
+    public function testClose()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with(new ConnectionClose)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(3))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionCloseOk);
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertNull($process->close());
+        $this->assertTrue($process->closed());
+    }
+
+    public function testThrowWhenInvalidCloseConfirmation()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with(new ConnectionClose)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(3))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn($this->createMock(Message::class));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        try {
+            $process->close();
+
+            $this->fail('it should throw');
+        } catch (InvalidConnectionClose $e) {
+            $this->assertTrue($process->closed());
+        }
+    }
+
+    public function testStopWaitingAfterTimeout()
+    {
+        $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $server = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/eternal-server.php')
+        );
+
+        \sleep(1);
+
+        $process = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            $name = new Name('server'),
+            new ElapsedPeriod(1000)
+        );
+
+        try {
+            $process->wait(new ElapsedPeriod(100));
+
+            $this->fail('it should throw');
+        } catch (Timedout $e) {
+            $processes->kill($server->pid(), Signal::terminate());
+            $this->assertTrue(true);
+        }
     }
 }

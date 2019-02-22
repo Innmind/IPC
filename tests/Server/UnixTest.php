@@ -1,18 +1,20 @@
 <?php
 declare(strict_types = 1);
 
-namespace Tests\Innmind\IPC\Receiver;
+namespace Tests\Innmind\IPC\Server;
 
 use Innmind\IPC\{
-    Receiver\UnixServer,
-    Receiver,
+    Server\Unix,
+    Server,
     Protocol,
-    Process,
-    Message,
-    Exception\Stop,
     Exception\RuntimeException,
+    Exception\Stop,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Factory,
+    Sockets,
+};
+use Innmind\Server\Control\Server\Command;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
@@ -22,103 +24,35 @@ use Innmind\TimeContinuum\{
 use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Socket\{
     Address\Unix as Address,
-    Server,
-    Server\Connection,
+    Server as ServerSocket,
     Exception\Exception as SocketException,
 };
 use Innmind\Stream\Exception\Exception as StreamException;
-use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
-class UnixServerTest extends TestCase
+class UnixTest extends TestCase
 {
     public function testInterface()
     {
         $this->assertInstanceOf(
-            Receiver::class,
-            new UnixServer(
+            Server::class,
+            new Unix(
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
                 $this->createMock(TimeContinuumInterface::class),
                 new Address('/tmp/foo.sock'),
-                new Process\Name('foo'),
                 new ElapsedPeriod(1000)
             )
         );
     }
 
-    public function testLoop()
-    {
-        $receive = new UnixServer(
-            $sockets = $this->createMock(Sockets::class),
-            $protocol = $this->createMock(Protocol::class),
-            $this->createMock(TimeContinuumInterface::class),
-            $address = new Address('/tmp/foo.sock'),
-            $name = new Process\Name('foo'),
-            new ElapsedPeriod(1000)
-        );
-        $sockets
-            ->expects($this->once())
-            ->method('open')
-            ->with($address)
-            ->willReturn($server = $this->createMock(Server::class));
-        $server
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($serverResource = \tmpfile());
-        $server
-            ->expects($this->once())
-            ->method('close');
-        $connection = $this->createMock(Connection::class);
-        $server
-            ->expects($this->once())
-            ->method('accept')
-            ->will($this->returnCallback(function() use ($serverResource, $connection) {
-                \fclose($serverResource); // to simulate that no other connection are incoming
-
-                return $connection;
-            }));
-        $connection
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn(\tmpfile());
-        $connection
-            ->expects($this->once())
-            ->method('close');
-        $protocol
-            ->expects($this->at(0))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new Message\Generic(
-                MediaType::fromString('application/json'),
-                Str::of('bar')
-            ));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($message = $this->createMock(Message::class));
-
-        $count = 0;
-        $this->assertNull($receive(function($a, $b) use ($message, &$count): void {
-            $this->assertSame($message, $a);
-            $this->assertInstanceOf(Process\Name::class, $b);
-            $this->assertSame('bar', (string) $b);
-            ++$count;
-
-            throw new Stop;
-        }));
-        $this->assertSame(1, $count);
-    }
-
     public function testWrapStreamException()
     {
-        $receive = new UnixServer(
+        $receive = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo.sock'),
-            new Process\Name('foo'),
             new ElapsedPeriod(1000)
         );
         $sockets
@@ -137,12 +71,11 @@ class UnixServerTest extends TestCase
 
     public function testWrapSocketException()
     {
-        $receive = new UnixServer(
+        $receive = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $this->createMock(TimeContinuumInterface::class),
             new Address('/tmp/foo.sock'),
-            new Process\Name('foo'),
             new ElapsedPeriod(1000)
         );
         $sockets
@@ -161,19 +94,18 @@ class UnixServerTest extends TestCase
 
     public function testStopWhenNoActivityInGivenPeriod()
     {
-        $receive = new UnixServer(
+        $receive = new Unix(
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $clock = $this->createMock(TimeContinuumInterface::class),
             $address = new Address('/tmp/foo.sock'),
-            new Process\Name('foo'),
             new ElapsedPeriod(10),
             $timeout = $this->createMock(ElapsedPeriodInterface::class)
         );
         $sockets
             ->expects($this->once())
             ->method('open')
-            ->willReturn(Server\Unix::recoverable($address));
+            ->willReturn(ServerSocket\Unix::recoverable($address));
         $clock
             ->expects($this->at(0))
             ->method('now')
@@ -208,5 +140,29 @@ class UnixServerTest extends TestCase
             ->willReturn(true);
 
         $this->assertNull($receive(function(){}));
+    }
+
+    public function testShutdownProcess()
+    {
+        $os = Factory::build();
+        $processes = $os->control()->processes();
+        $server = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client.php')
+        );
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            new ElapsedPeriod(100),
+            new ElapsedPeriod(10000)
+        );
+
+        $this->assertNull($listen(static function() {
+            throw new Stop;
+        }));
     }
 }
