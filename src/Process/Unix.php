@@ -6,11 +6,22 @@ namespace Innmind\IPC\Process;
 use Innmind\IPC\{
     Process,
     Protocol,
-    Receiver,
-    Sender,
+    Message,
+    Message\ConnectionStart,
+    Message\ConnectionStartOk,
+    Message\ConnectionClose,
+    Message\ConnectionCloseOk,
+    Exception\FailedToConnect,
+    Exception\ConnectionClosed,
+    Exception\Timedout,
+    Exception\InvalidConnectionClose,
 };
 use Innmind\OperatingSystem\Sockets;
-use Innmind\Socket\Address\Unix as Address;
+use Innmind\Socket\{
+    Address\Unix as Address,
+    Client,
+};
+use Innmind\Stream\Select;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
@@ -19,12 +30,13 @@ use Innmind\TimeContinuum\{
 
 final class Unix implements Process
 {
-    private $sockets;
+    private $socket;
+    private $select;
     private $protocol;
     private $clock;
-    private $address;
     private $name;
-    private $selectTimeout;
+    private $lastReceivedData;
+    private $closed = false;
 
     public function __construct(
         Sockets $sockets,
@@ -34,12 +46,13 @@ final class Unix implements Process
         Name $name,
         ElapsedPeriod $selectTimeout
     ) {
-        $this->sockets = $sockets;
+        $this->socket = $sockets->connectTo($address);
+        $this->select = (new Select($selectTimeout))->forRead($this->socket);
         $this->protocol = $protocol;
         $this->clock = $clock;
-        $this->address = $address;
         $this->name = $name;
-        $this->selectTimeout = $selectTimeout;
+        $this->lastReceivedData = $clock->now();
+        $this->open();
     }
 
     public function name(): Name
@@ -47,26 +60,102 @@ final class Unix implements Process
         return $this->name;
     }
 
-    public function send(Name $sender): Sender
+    public function send(Message ...$messages): void
     {
-        return new Sender\Unix(
-            $this->sockets,
-            $this->protocol,
-            $this->address,
-            $sender
-        );
+        if ($this->closed()) {
+            return;
+        }
+
+        foreach ($messages as $message) {
+            $this->socket->write(
+                $this->protocol->encode($message)
+            );
+        }
     }
 
-    public function listen(ElapsedPeriodInterface $timeout = null): Receiver
+    /**
+     * {@inheritdoc}
+     */
+    public function wait(ElapsedPeriodInterface $timeout = null): Message
     {
-        return new Receiver\UnixClient(
-            $this->sockets,
-            $this->protocol,
-            $this->clock,
-            $this->name,
-            $this->address,
-            $this->selectTimeout,
-            $timeout
-        );
+        do {
+            if ($this->closed()) {
+                $this->cut();
+
+                throw new ConnectionClosed;
+            }
+
+            $sockets = ($this->select)();
+            $receivedData = $sockets->get('read')->contains($this->socket);
+
+            if (!$receivedData) {
+                $this->timeout($timeout);
+            }
+        } while (!$receivedData);
+
+        $this->lastReceivedData = $this->clock->now();
+        $message = $this->protocol->decode($this->socket);
+
+        if ($message->equals(new ConnectionClose)) {
+            $this->send(new ConnectionCloseOk);
+            $this->cut();
+
+            throw new ConnectionClosed;
+        }
+
+        return $message;
+    }
+
+    public function close(): void
+    {
+        if ($this->closed()) {
+            return;
+        }
+
+        $this->send(new ConnectionClose);
+        $message = $this->wait();
+
+        if (!$message->equals(new ConnectionCloseOk)) {
+            $this->cut();
+
+            throw new InvalidConnectionClose((string) $this->name());
+        }
+
+        $this->cut();
+    }
+
+    public function closed(): bool
+    {
+        return $this->closed || $this->socket->closed();
+    }
+
+    private function open(): void
+    {
+        $message = $this->wait();
+
+        if (!$message->equals(new ConnectionStart)) {
+            throw new FailedToConnect((string) $this->name());
+        }
+
+        $this->send(new ConnectionStartOk);
+    }
+
+    private function cut(): void
+    {
+        $this->closed = true;
+        $this->socket->close();
+    }
+
+    private function timeout(ElapsedPeriodInterface $timeout = null): void
+    {
+        if ($timeout === null) {
+            return;
+        }
+
+        $iteration = $this->clock->now()->elapsedSince($this->lastReceivedData);
+
+        if ($iteration->longerThan($timeout)) {
+            throw new Timedout;
+        }
     }
 }
