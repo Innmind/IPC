@@ -73,38 +73,18 @@ class UnixTest extends TestCase
                     ('foo', $this->createMock(File::class))
                     ('bar', $this->createMock(File::class))
             );
-        $sockets
-            ->expects($this->at(0))
-            ->method('connectTo')
-            ->willReturn($client1 = $this->createMock(Client::class));
-        $sockets
-            ->expects($this->at(1))
-            ->method('connectTo')
-            ->willReturn($client2 = $this->createMock(Client::class));
-        $resource1 = \tmpfile();
-        $resource2 = \tmpfile();
-        $client1
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource1);
-        $client2
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource2);
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('decode')
-            ->willReturn(new ConnectionStart);
 
         $processes = $ipc->processes();
 
         $this->assertInstanceOf(SetInterface::class, $processes);
-        $this->assertSame(Process::class, (string) $processes->type());
+        $this->assertSame(Process\Name::class, (string) $processes->type());
         $this->assertCount(2, $processes);
-        $foo = $processes->current();
 
-        $this->assertInstanceOf(Process\Unix::class, $foo);
-        $this->assertSame('foo', (string) $foo->name());
+        $foo = $processes->current();
+        $this->assertSame('foo', (string) $foo);
+        $processes->next();
+        $bar = $processes->current();
+        $this->assertSame('bar', (string) $bar);
     }
 
     public function testThrowWhenGettingUnknownProcess()

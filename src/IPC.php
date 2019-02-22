@@ -9,7 +9,7 @@ use Innmind\Immutable\SetInterface;
 interface IPC
 {
     /**
-     * @return SetInterface<Process> All processes waiting for messages
+     * @return SetInterface<Process\Name> All processes waiting for messages
      */
     public function processes(): SetInterface;
     public function get(Process\Name $name): Process;

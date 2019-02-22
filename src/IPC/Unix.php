@@ -66,16 +66,9 @@ final class Unix implements IPC
             ->all()
             ->keys()
             ->reduce(
-                Set::of(Process::class),
-                function(SetInterface $processes, string $name): SetInterface {
-                    return $processes->add(new Process\Unix(
-                        $this->sockets,
-                        $this->protocol,
-                        $this->clock,
-                        $this->addressOf($name),
-                        new Process\Name($name),
-                        $this->selectTimeout
-                    ));
+                Set::of(Process\Name::class),
+                static function(SetInterface $processes, string $name): SetInterface {
+                    return $processes->add(new Process\Name($name));
                 }
             );
     }
