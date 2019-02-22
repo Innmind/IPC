@@ -30,6 +30,7 @@ use Innmind\TimeContinuum\{
 };
 use Innmind\Immutable\{
     Map,
+    SetInterface,
     Set,
 };
 
@@ -45,6 +46,7 @@ final class Unix implements Server
     private $connectionStartOk;
     private $connectionClose;
     private $connectionCloseOk;
+    private $heartbeat;
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
@@ -69,6 +71,7 @@ final class Unix implements Server
         $this->connectionStartOk = new Message\ConnectionStartOk;
         $this->connectionClose = new Message\ConnectionClose;
         $this->connectionCloseOk = new Message\ConnectionCloseOk;
+        $this->heartbeat = new Message\Heartbeat;
         $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
@@ -113,6 +116,8 @@ final class Unix implements Server
                     $select = $select->forRead($connection);
                     $this->pendingStartOk($connection);
                 }
+
+                $this->heartbeat($sockets->get('read')->remove($server));
 
                 $select = $sockets
                     ->get('read')
@@ -197,7 +202,8 @@ final class Unix implements Server
             $this->connectionStart->equals($message) ||
             $this->connectionStartOk->equals($message) ||
             $this->connectionClose->equals($message) ||
-            $this->connectionCloseOk->equals($message);
+            $this->connectionCloseOk->equals($message) ||
+            $this->heartbeat->equals($message);
     }
 
     private function closing(Message $message): bool
@@ -282,5 +288,21 @@ final class Unix implements Server
             $connection->close();
         });
         $server->close();
+    }
+
+    /**
+     * @param SetInterface<Connection> $activeSockets
+     */
+    private function heartbeat(SetInterface $activeSockets): void
+    {
+        $this
+            ->clients
+            ->filter(static function(Connection $connection) use ($activeSockets): bool {
+                return !$activeSockets->contains($connection);
+            })
+            ->values()
+            ->foreach(function(Client $client): void {
+                $client->send($this->heartbeat);
+            });
     }
 }

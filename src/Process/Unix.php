@@ -11,6 +11,7 @@ use Innmind\IPC\{
     Message\ConnectionStartOk,
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
+    Message\Heartbeat,
     Exception\FailedToConnect,
     Exception\ConnectionClosed,
     Exception\Timedout,
@@ -103,6 +104,7 @@ final class Unix implements Process
             $receivedData = $sockets->get('read')->contains($this->socket);
 
             if (!$receivedData) {
+                $this->send(new Heartbeat);
                 $this->timeout($timeout);
             }
         } while (!$receivedData);
@@ -113,6 +115,10 @@ final class Unix implements Process
             $message = $this->protocol->decode($this->socket);
         } catch (Stream | Socket $e) {
             throw new RuntimeException('', 0, $e);
+        }
+
+        if ($message->equals(new Heartbeat)) {
+            return $this->wait($timeout);
         }
 
         if ($message->equals(new ConnectionClose)) {

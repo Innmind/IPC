@@ -13,6 +13,7 @@ use Innmind\IPC\{
     Message\ConnectionStartOk,
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
+    Message\Heartbeat,
     Exception\FailedToConnect,
     Exception\ConnectionClosed,
     Exception\InvalidConnectionClose,
@@ -403,6 +404,57 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $protocol
             ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn($message = $this->createMock(Message::class));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->assertSame($message, $process->wait());
+    }
+
+    public function testDiscardHeartbeatWhenWaiting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new Heartbeat);
+        $protocol
+            ->expects($this->at(3))
             ->method('decode')
             ->with($socket)
             ->willReturn($message = $this->createMock(Message::class));
