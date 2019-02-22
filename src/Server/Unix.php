@@ -123,7 +123,7 @@ final class Unix implements Server
                                 // connection closed
                                 return $select->unwatch($connection);
                             }
-dump($message);
+
                             $this->welcome($connection, $message);
                             $select = $this->cleanup($connection, $message, $select);
 
