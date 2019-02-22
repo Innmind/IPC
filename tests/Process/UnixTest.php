@@ -682,6 +682,7 @@ class UnixTest extends TestCase
     public function testStopWaitingAfterTimeout()
     {
         $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
