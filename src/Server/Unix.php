@@ -45,6 +45,7 @@ final class Unix implements Server
     private $connectionStartOk;
     private $connectionClose;
     private $connectionCloseOk;
+    private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
     private $hadActivity = false;
@@ -68,6 +69,7 @@ final class Unix implements Server
         $this->connectionStartOk = new Message\ConnectionStartOk;
         $this->connectionClose = new Message\ConnectionClose;
         $this->connectionCloseOk = new Message\ConnectionCloseOk;
+        $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
     }
@@ -109,6 +111,7 @@ final class Unix implements Server
                 if ($sockets->get('read')->contains($server)) {
                     $connection = $server->accept();
                     $select = $select->forRead($connection);
+                    $this->pendingStartOk($connection);
                 }
 
                 $select = $sockets
@@ -160,29 +163,38 @@ final class Unix implements Server
         } while (true);
     }
 
-    private function welcome(Connection $connection, Message $message): void
+    private function pendingStartOk(Connection $connection): void
     {
-        if ($this->clients->contains($connection)) {
-            return;
-        }
-
-        if (!$this->connectionStart->equals($message)) {
-            return;
-        }
-
         $client = new Client\Unix(
             $connection,
             $this->protocol
         );
-        $this->clients = $this->clients->put($connection, $client);
-        $client->send($this->connectionStartOk);
+        $this->pendingStartOk = $this->pendingStartOk->put($connection, $client);
+        $client->send($this->connectionStart);
+    }
+
+    private function welcome(Connection $connection, Message $message): void
+    {
+        if ($this->pendingStartOk->contains($connection)) {
+            return;
+        }
+
+        if (!$this->connectionStartOk->equals($message)) {
+            return;
+        }
+
+        $this->clients = $this->clients->put(
+            $connection,
+            $this->pendingStartOk->get($connection)
+        );
+        $this->pendingStartOk = $this->pendingStartOk->remove($connection);
     }
 
     private function discard(Connection $connection, Message $message): bool
     {
         return !$this->clients->contains($connection) ||
             $this->pendingCloseOk->contains($connection) ||
-            $this->connectionStart->equals($message) ||
+            $this->connectionStartOk->equals($message) ||
             $this->connectionCloseOk->equals($message);
     }
 
