@@ -175,7 +175,7 @@ final class Unix implements Server
 
     private function welcome(Connection $connection, Message $message): void
     {
-        if ($this->pendingStartOk->contains($connection)) {
+        if (!$this->pendingStartOk->contains($connection)) {
             return;
         }
 
