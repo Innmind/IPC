@@ -15,5 +15,5 @@ interface IPC
     public function get(Process\Name $name): Process;
     public function exist(Process\Name $name): bool;
     public function wait(Process\Name $name, ElapsedPeriodInterface $timeout = null): void;
-    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver;
+    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Server;
 }

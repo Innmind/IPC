@@ -6,7 +6,7 @@ namespace Innmind\IPC\IPC;
 use Innmind\IPC\{
     IPC,
     Process,
-    Receiver,
+    Server,
     Protocol,
     Exception\LogicException,
 };
@@ -121,14 +121,13 @@ final class Unix implements IPC
         } while (true);
     }
 
-    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver
+    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Server
     {
-        return new Receiver\UnixServer(
+        return new Server\Unix(
             $this->sockets,
             $this->protocol,
             $this->clock,
             $this->addressOf((string) $self),
-            $self,
             $this->selectTimeout,
             $timeout
         );

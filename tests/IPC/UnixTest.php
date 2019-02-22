@@ -7,9 +7,10 @@ use Innmind\IPC\{
     IPC\Unix,
     IPC,
     Protocol,
-    Receiver,
+    Server,
     Process,
     Process\Name,
+    Message\ConnectionStart,
     Exception\LogicException,
 };
 use Innmind\OperatingSystem\{
@@ -28,6 +29,7 @@ use Innmind\TimeContinuum\{
     Period\Earth\Millisecond,
     PointInTimeInterface,
 };
+use Innmind\Socket\Client;
 use Innmind\Immutable\{
     Map,
     SetInterface,
@@ -59,7 +61,7 @@ class UnixTest extends TestCase
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
             $this->createMock(CurrentProcess::class),
-            $this->createMock(Protocol::class),
+            $protocol = $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
         );
@@ -71,6 +73,28 @@ class UnixTest extends TestCase
                     ('foo', $this->createMock(File::class))
                     ('bar', $this->createMock(File::class))
             );
+        $sockets
+            ->expects($this->at(0))
+            ->method('connectTo')
+            ->willReturn($client1 = $this->createMock(Client::class));
+        $sockets
+            ->expects($this->at(1))
+            ->method('connectTo')
+            ->willReturn($client2 = $this->createMock(Client::class));
+        $resource1 = \tmpfile();
+        $resource2 = \tmpfile();
+        $client1
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource1);
+        $client2
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource2);
+        $protocol
+            ->expects($this->exactly(2))
+            ->method('decode')
+            ->willReturn(new ConnectionStart);
 
         $processes = $ipc->processes();
 
@@ -79,15 +103,8 @@ class UnixTest extends TestCase
         $this->assertCount(2, $processes);
         $foo = $processes->current();
 
+        $this->assertInstanceOf(Process\Unix::class, $foo);
         $this->assertSame('foo', (string) $foo->name());
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($this->callback(static function($address): bool {
-                return (string) $address === '/tmp/foo.sock';
-            }));
-
-        $this->assertNull($foo->send(new Name('sender'))());
     }
 
     public function testThrowWhenGettingUnknownProcess()
@@ -119,7 +136,7 @@ class UnixTest extends TestCase
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(TimeContinuumInterface::class),
             $this->createMock(CurrentProcess::class),
-            $this->createMock(Protocol::class),
+            $protocol = $this->createMock(Protocol::class),
             new Path('/tmp/'),
             new ElapsedPeriod(1000)
         );
@@ -128,19 +145,24 @@ class UnixTest extends TestCase
             ->method('has')
             ->with('foo.sock')
             ->willReturn(true);
-
-        $foo = $ipc->get(new Name('foo'));
-
-        $this->assertInstanceOf(Process::class, $foo);
-        $this->assertSame('foo', (string) $foo->name());
         $sockets
             ->expects($this->once())
             ->method('connectTo')
-            ->with($this->callback(static function($address): bool {
-                return (string) $address === '/tmp/foo.sock';
-            }));
+            ->willReturn($client = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $client
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->once())
+            ->method('decode')
+            ->willReturn(new ConnectionStart);
 
-        $this->assertNull($foo->send(new Name('sender'))());
+        $foo = $ipc->get(new Name('foo'));
+
+        $this->assertInstanceOf(Process\Unix::class, $foo);
+        $this->assertSame('foo', (string) $foo->name());
     }
 
     public function testExist()
@@ -176,12 +198,12 @@ class UnixTest extends TestCase
             new ElapsedPeriod(1000)
         );
 
-        $receiver = $ipc->listen(
+        $server = $ipc->listen(
             new Name('bar'),
             $this->createMock(ElapsedPeriodInterface::class)
         );
 
-        $this->assertInstanceOf(Receiver\UnixServer::class, $receiver);
+        $this->assertInstanceOf(Server\Unix::class, $server);
     }
 
     public function testWait()
