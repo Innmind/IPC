@@ -8,8 +8,13 @@ use Innmind\IPC\{
     Server,
     Protocol,
     Exception\RuntimeException,
+    Exception\Stop,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Factory,
+    Sockets,
+};
+use Innmind\Server\Control\Server\Command;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
@@ -135,5 +140,28 @@ class UnixTest extends TestCase
             ->willReturn(true);
 
         $this->assertNull($receive(function(){}));
+    }
+
+    public function testShutdownProcess()
+    {
+        $os = Factory::build();
+        $processes = $os->control()->processes();
+        $server = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client.php')
+        );
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            new ElapsedPeriod(100)
+        );
+
+        $this->assertNull($listen(static function() {
+            throw new Stop;
+        }));
     }
 }
