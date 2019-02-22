@@ -50,6 +50,7 @@ final class Unix implements Server
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
+    private $startedAt;
     private $hadActivity = false;
     private $shuttingDown = false;
 
