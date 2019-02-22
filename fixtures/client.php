@@ -5,7 +5,7 @@ use function Innmind\IPC\bootstrap;
 use Innmind\IPC\{
     Message,
     Process\Name,
-    Exception\Stop,
+    Exception\ConnectionClosed,
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\Filesystem\MediaType\MediaType;
@@ -16,11 +16,15 @@ require __DIR__.'/../vendor/autoload.php';
 $os = Factory::build();
 $ipc = bootstrap($os);
 $ipc->wait(new Name('server'));
-$ipc->get(new Name('server'))->send(new Name('client'))(new Message\Generic(
+$process = $ipc->get(new Name('server'));
+$process->send(new Message\Generic(
     MediaType::fromString('text/plain'),
     Str::of('hello world')
 ));
-$ipc->listen(new Name('client'))(static function($message, $sender): void {
-    echo "{$message->content()} from $sender\n";
-    throw new Stop;
-});
+$message = $process->wait();
+
+try {
+    $process->wait();
+} catch (ConnectionClosed $e) {
+    echo $message->content();
+}

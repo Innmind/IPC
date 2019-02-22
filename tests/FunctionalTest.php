@@ -25,6 +25,6 @@ class FunctionalTest extends TestCase
             ->wait()
             ->output();
 
-        $this->assertSame("hello world from server\n", $output);
+        $this->assertSame('hello world', $output);
     }
 }

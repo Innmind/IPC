@@ -12,12 +12,8 @@ require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = bootstrap($os);
-$messageToSend = null;
-$sender = null;
-$ipc->listen(new Name('server'))(static function($message, $process) use (&$messageToSend, &$sender): void {
-    $messageToSend = $message;
-    $sender = $process;
+$ipc->listen(new Name('server'))(static function($message, $client): void {
+    $client->send($message);
+    $client->close();
     throw new Stop;
 });
-$ipc->wait($sender);
-$ipc->get($sender)->send(new Name('server'))($messageToSend);
