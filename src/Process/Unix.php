@@ -15,13 +15,18 @@ use Innmind\IPC\{
     Exception\ConnectionClosed,
     Exception\Timedout,
     Exception\InvalidConnectionClose,
+    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
+    Exception\Exception as Socket,
 };
-use Innmind\Stream\Select;
+use Innmind\Stream\{
+    Select,
+    Exception\Exception as Stream,
+};
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
@@ -66,10 +71,14 @@ final class Unix implements Process
             return;
         }
 
-        foreach ($messages as $message) {
-            $this->socket->write(
-                $this->protocol->encode($message)
-            );
+        try {
+            foreach ($messages as $message) {
+                $this->socket->write(
+                    $this->protocol->encode($message)
+                );
+            }
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
         }
     }
 
@@ -85,7 +94,12 @@ final class Unix implements Process
                 throw new ConnectionClosed;
             }
 
-            $sockets = ($this->select)();
+            try {
+                $sockets = ($this->select)();
+            } catch (Stream | Socket $e) {
+                throw new RuntimeException('', 0, $e);
+            }
+
             $receivedData = $sockets->get('read')->contains($this->socket);
 
             if (!$receivedData) {
@@ -94,7 +108,12 @@ final class Unix implements Process
         } while (!$receivedData);
 
         $this->lastReceivedData = $this->clock->now();
-        $message = $this->protocol->decode($this->socket);
+
+        try {
+            $message = $this->protocol->decode($this->socket);
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
+        }
 
         if ($message->equals(new ConnectionClose)) {
             $this->send(new ConnectionCloseOk);
