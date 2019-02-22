@@ -157,7 +157,8 @@ class UnixTest extends TestCase
             new Protocol\Binary,
             $os->clock(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
-            new ElapsedPeriod(100)
+            new ElapsedPeriod(100),
+            new ElapsedPeriod(10000)
         );
 
         $this->assertNull($listen(static function() {
