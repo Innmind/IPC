@@ -17,8 +17,16 @@ use Innmind\IPC\{
     Exception\ConnectionClosed,
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
+    Exception\Timedout,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Factory,
+    Sockets,
+};
+use Innmind\Server\Control\Server\{
+    Command,
+    Signal,
+};
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
@@ -616,6 +624,36 @@ class UnixTest extends TestCase
             $this->fail('it should throw');
         } catch (InvalidConnectionClose $e) {
             $this->assertTrue($process->closed());
+        }
+    }
+
+    public function testStopWaitingAfterTimeout()
+    {
+        $os = Factory::build();
+        $processes = $os->control()->processes();
+        $server = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/eternal-server.php')
+        );
+
+        \sleep(1);
+
+        $process = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            $name = new Name('server'),
+            new ElapsedPeriod(1000)
+        );
+
+        try {
+            $process->wait(new ElapsedPeriod(100));
+
+            $this->fail('it should throw');
+        } catch (Timedout $e) {
+            $processes->kill($server->pid(), Signal::terminate());
+            $this->assertTrue(true);
         }
     }
 }
