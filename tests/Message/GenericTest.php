@@ -24,4 +24,20 @@ class GenericTest extends TestCase
         $this->assertSame($mediaType, $message->mediaType());
         $this->assertSame($content, $message->content());
     }
+
+    public function testEquals()
+    {
+        $message = new Generic(
+            MediaType\MediaType::fromString('text/plain'),
+            Str::of('watev')
+        );
+        $same = new Generic(
+            MediaType\MediaType::fromString('text/plain'),
+            Str::of('watev')
+        );
+        $different = $this->createMock(Message::class);
+
+        $this->assertTrue($message->equals($same));
+        $this->assertFalse($message->equals($different));
+    }
 }

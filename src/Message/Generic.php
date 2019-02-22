@@ -27,4 +27,10 @@ final class Generic implements Message
     {
         return $this->content;
     }
+
+    public function equals(Message $message): bool
+    {
+        return (string) $this->mediaType === (string) $message->mediaType() &&
+            (string) $this->content === (string) $message->content();
+    }
 }
