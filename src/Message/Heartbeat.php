@@ -7,15 +7,15 @@ use Innmind\IPC\Message;
 use Innmind\Filesystem\MediaType;
 use Innmind\Immutable\Str;
 
-final class Generic implements Message
+final class Heartbeat implements Message
 {
     private $mediaType;
     private $content;
 
-    public function __construct(MediaType $mediaType, Str $content)
+    public function __construct()
     {
-        $this->mediaType = $mediaType;
-        $this->content = $content;
+        $this->mediaType = new MediaType\MediaType('text', 'plain');
+        $this->content = Str::of('innmind/ipc:heartbeat');
     }
 
     public function mediaType(): MediaType
