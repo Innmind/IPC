@@ -194,7 +194,9 @@ final class Unix implements Server
     {
         return !$this->clients->contains($connection) ||
             $this->pendingCloseOk->contains($connection) ||
+            $this->connectionStart->equals($message) ||
             $this->connectionStartOk->equals($message) ||
+            $this->connectionClose->equals($message) ||
             $this->connectionCloseOk->equals($message);
     }
 
