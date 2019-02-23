@@ -165,4 +165,28 @@ class UnixTest extends TestCase
             throw new Stop;
         }));
     }
+
+    public function testClientClose()
+    {
+        $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $client = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client.php')
+        );
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            new ElapsedPeriod(100),
+            new ElapsedPeriod(3000)
+        );
+
+        $this->assertNull($listen(static function($message, $client) {
+            $client->close();
+        }));
+    }
 }

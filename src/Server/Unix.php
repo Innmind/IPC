@@ -50,7 +50,7 @@ final class Unix implements Server
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
-    private $startedAt;
+    private $lastReceivedData;
     private $hadActivity = false;
     private $shuttingDown = false;
 
@@ -88,7 +88,7 @@ final class Unix implements Server
         $this->pendingCloseOk = $this->pendingCloseOk->clear();
         $this->hadActivity = false;
         $this->shuttingDown = false;
-        $this->startedAt = $this->clock->now();
+        $this->lastReceivedData = $this->clock->now();
 
         try {
             $this->loop($listen);
@@ -109,7 +109,7 @@ final class Unix implements Server
 
             try {
                 if (!$sockets->get('read')->empty()) {
-                    $this->hadActivity = true;
+                    $this->lastReceivedData = $this->clock->now();
                 }
 
                 if ($sockets->get('read')->contains($server)) {
@@ -245,15 +245,11 @@ final class Unix implements Server
 
     private function monitorTimeout(): void
     {
-        if ($this->hadActivity) {
-            return;
-        }
-
         if (!$this->timeout instanceof ElapsedPeriodInterface) {
             return;
         }
 
-        $iteration = $this->clock->now()->elapsedSince($this->startedAt);
+        $iteration = $this->clock->now()->elapsedSince($this->lastReceivedData);
 
         if ($iteration->longerThan($this->timeout)) {
             // stop execution when no activity in the given period
