@@ -145,12 +145,12 @@ class UnixTest extends TestCase
     public function testShutdownProcess()
     {
         $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
         );
-        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
 
         $listen = new Unix(
             $os->sockets(),
