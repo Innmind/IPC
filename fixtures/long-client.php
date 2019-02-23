@@ -9,14 +9,13 @@ use Innmind\IPC\{
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\Filesystem\MediaType\MediaType;
-use Innmind\TimeContinuum\Period\Earth\Second;
 use Innmind\Immutable\Str;
 
 require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = bootstrap($os);
-$os->process()->halt(new Second(3));
+$ipc->wait(new Name('server'));
 $process = $ipc->get(new Name('server'));
 $process->send(new Message\Generic(
     MediaType::fromString('text/plain'),
