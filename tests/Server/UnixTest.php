@@ -241,4 +241,28 @@ class UnixTest extends TestCase
         // only test coverage can show that show that connections are closed on
         // user exception
     }
+
+    public function testRespondToClientClose()
+    {
+        $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $client = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/self-closing-client.php')
+        );
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            new ElapsedPeriod(100),
+            new ElapsedPeriod(3000)
+        );
+
+        $this->assertNull($listen(static function() {
+        }));
+        $this->assertSame('', (string) $client->wait()->output());
+    }
 }
