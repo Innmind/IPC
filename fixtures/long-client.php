@@ -21,10 +21,8 @@ $process->send(new Message\Generic(
     MediaType::fromString('text/plain'),
     Str::of('hello world')
 ));
-$message = $process->wait();
 
 try {
     $process->wait();
 } catch (ConnectionClosed $e) {
-    echo $message->content();
 }

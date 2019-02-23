@@ -23,8 +23,8 @@ use Innmind\IPC\Process\Name;
 use Innmind\OperatingSystem\Factory;
 
 $ipc = bootstrap(Factory::build());
-$ipc->listen(new Name('a'))(static function($message, $sender): void {
-    echo "$sender says {$message->content()}";
+$ipc->listen(new Name('a'))(static function($message, $client): void {
+    $client->send($message);
 });
 ```
 
@@ -42,9 +42,13 @@ use Innmind\Immutable\Str;
 $ipc = bootstrap(Factory::build());
 $server = new Name('a');
 $ipc->wait($server);
-$ipc->get($server)->send(new Name('b'))(
-    new Message(MediaType::fromString('text/plain'), Str::of('hello world'))
-);
+$process = $ipc->get($server);
+$process->send(new Message(
+    MediaType::fromString('text/plain'),
+    Str::of('hello world')
+));
+$message = $process->wait();
+echo 'server responded '.$message->content();
 ```
 
-The above example will result in the output `b says hello world` in the process `A`.
+The above example will result in the output `server responded hello world` in the process `B`.

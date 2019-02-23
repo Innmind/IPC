@@ -4,36 +4,31 @@ declare(strict_types = 1);
 namespace Tests\Innmind\IPC\Message;
 
 use Innmind\IPC\{
+    Message\ConnectionCloseOk,
     Message\Generic,
     Message,
 };
-use Innmind\Filesystem\MediaType;
+use Innmind\Filesystem\MediaType\MediaType;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
-class GenericTest extends TestCase
+class ConnectionCloseOkTest extends TestCase
 {
     public function testInterface()
     {
-        $message = new Generic(
-            $mediaType = $this->createMock(MediaType::class),
-            $content = Str::of('foo')
-        );
+        $message = new ConnectionCloseOk;
 
         $this->assertInstanceOf(Message::class, $message);
-        $this->assertSame($mediaType, $message->mediaType());
-        $this->assertSame($content, $message->content());
+        $this->assertSame('text/plain', (string) $message->mediaType());
+        $this->assertSame('innmind/ipc:connection.close-ok', (string) $message->content());
     }
 
     public function testEquals()
     {
-        $message = new Generic(
-            MediaType\MediaType::fromString('text/plain'),
-            Str::of('watev')
-        );
+        $message = new ConnectionCloseOk;
         $same = new Generic(
-            MediaType\MediaType::fromString('text/plain'),
-            Str::of('watev')
+            MediaType::fromString('text/plain'),
+            Str::of('innmind/ipc:connection.close-ok')
         );
         $different = $this->createMock(Message::class);
 

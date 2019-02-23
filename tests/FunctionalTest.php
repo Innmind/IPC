@@ -12,6 +12,7 @@ class FunctionalTest extends TestCase
     public function testBehaviour()
     {
         $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $processes->execute(
             Command::background('php')
@@ -25,6 +26,6 @@ class FunctionalTest extends TestCase
             ->wait()
             ->output();
 
-        $this->assertSame("hello world from server\n", $output);
+        $this->assertSame('hello world', $output);
     }
 }

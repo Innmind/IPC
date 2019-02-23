@@ -5,7 +5,6 @@ use function Innmind\IPC\bootstrap;
 use Innmind\IPC\{
     Message,
     Process\Name,
-    Exception\ConnectionClosed,
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\Filesystem\MediaType\MediaType;
@@ -21,10 +20,4 @@ $process->send(new Message\Generic(
     MediaType::fromString('text/plain'),
     Str::of('hello world')
 ));
-$message = $process->wait();
-
-try {
-    $process->wait();
-} catch (ConnectionClosed $e) {
-    echo $message->content();
-}
+$process->close();

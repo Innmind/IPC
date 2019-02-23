@@ -6,7 +6,7 @@ namespace Innmind\IPC\IPC;
 use Innmind\IPC\{
     IPC,
     Process,
-    Receiver,
+    Server,
     Protocol,
     Exception\LogicException,
 };
@@ -36,7 +36,7 @@ final class Unix implements IPC
     private $process;
     private $protocol;
     private $path;
-    private $selectTimeout;
+    private $heartbeat;
 
     public function __construct(
         Sockets $sockets,
@@ -45,7 +45,7 @@ final class Unix implements IPC
         CurrentProcess $process,
         Protocol $protocol,
         PathInterface $path,
-        ElapsedPeriod $selectTimeout
+        ElapsedPeriod $heartbeat
     ) {
         $this->sockets = $sockets;
         $this->filesystem = $filesystem;
@@ -53,7 +53,7 @@ final class Unix implements IPC
         $this->process = $process;
         $this->protocol = $protocol;
         $this->path = \rtrim((string) $path, '/');
-        $this->selectTimeout = $selectTimeout;
+        $this->heartbeat = $heartbeat;
     }
 
     /**
@@ -66,16 +66,9 @@ final class Unix implements IPC
             ->all()
             ->keys()
             ->reduce(
-                Set::of(Process::class),
-                function(SetInterface $processes, string $name): SetInterface {
-                    return $processes->add(new Process\Unix(
-                        $this->sockets,
-                        $this->protocol,
-                        $this->clock,
-                        $this->addressOf($name),
-                        new Process\Name($name),
-                        $this->selectTimeout
-                    ));
+                Set::of(Process\Name::class),
+                static function(SetInterface $processes, string $name): SetInterface {
+                    return $processes->add(new Process\Name($name));
                 }
             );
     }
@@ -92,7 +85,7 @@ final class Unix implements IPC
             $this->clock,
             $this->addressOf((string) $name),
             $name,
-            $this->selectTimeout
+            $this->heartbeat
         );
     }
 
@@ -117,19 +110,18 @@ final class Unix implements IPC
                 return;
             }
 
-            $this->process->halt(new Millisecond($this->selectTimeout->milliseconds()));
+            $this->process->halt(new Millisecond($this->heartbeat->milliseconds()));
         } while (true);
     }
 
-    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Receiver
+    public function listen(Process\Name $self, ElapsedPeriodInterface $timeout = null): Server
     {
-        return new Receiver\UnixServer(
+        return new Server\Unix(
             $this->sockets,
             $this->protocol,
             $this->clock,
             $this->addressOf((string) $self),
-            $self,
-            $this->selectTimeout,
+            $this->heartbeat,
             $timeout
         );
     }
