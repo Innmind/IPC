@@ -474,6 +474,66 @@ class UnixTest extends TestCase
         $this->assertSame($message, $process->wait());
     }
 
+    public function testConfirmCloseWhenWaiting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionClose);
+        $protocol
+            ->expects($this->at(3))
+            ->method('encode')
+            ->with(new ConnectionCloseOk)
+            ->willReturn(Str::of('close-ok'));
+        $socket
+            ->method('write')
+            ->with($this->logicalOr(
+                $this->equalTo(Str::of('start-ok')),
+                $this->equalTo(Str::of('close-ok'))
+            ));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        try {
+            $process->wait();
+
+            $this->fail('it should throw');
+        } catch (ConnectionClosed $e) {
+            $this->assertTrue($process->closed());
+        }
+    }
+
     public function testWrapStreamExceptionWhenErrorAtWait()
     {
         $sockets = $this->createMock(Sockets::class);
