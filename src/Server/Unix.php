@@ -40,13 +40,13 @@ final class Unix implements Server
     private $protocol;
     private $clock;
     private $address;
-    private $selectTimeout;
+    private $heartbeat;
     private $timeout;
     private $connectionStart;
     private $connectionStartOk;
     private $connectionClose;
     private $connectionCloseOk;
-    private $heartbeat;
+    private $connectionHeartbeat;
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
@@ -59,20 +59,20 @@ final class Unix implements Server
         Protocol $protocol,
         TimeContinuumInterface $clock,
         Address $address,
-        ElapsedPeriod $selectTimeout,
+        ElapsedPeriod $heartbeat,
         ElapsedPeriodInterface $timeout = null
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
         $this->clock = $clock;
         $this->address = $address;
-        $this->selectTimeout = $selectTimeout;
+        $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
         $this->connectionStart = new Message\ConnectionStart;
         $this->connectionStartOk = new Message\ConnectionStartOk;
         $this->connectionClose = new Message\ConnectionClose;
         $this->connectionCloseOk = new Message\ConnectionCloseOk;
-        $this->heartbeat = new Message\Heartbeat;
+        $this->connectionHeartbeat = new Message\Heartbeat;
         $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
@@ -102,7 +102,7 @@ final class Unix implements Server
     private function loop(callable $listen): void
     {
         $server = $this->sockets->open($this->address);
-        $select = (new Select($this->selectTimeout))->forRead($server);
+        $select = (new Select($this->heartbeat))->forRead($server);
 
         do {
             $sockets = $select();
@@ -204,7 +204,7 @@ final class Unix implements Server
             $this->connectionStartOk->equals($message) ||
             $this->connectionClose->equals($message) ||
             $this->connectionCloseOk->equals($message) ||
-            $this->heartbeat->equals($message);
+            $this->connectionHeartbeat->equals($message);
     }
 
     private function closing(Message $message): bool
@@ -299,7 +299,7 @@ final class Unix implements Server
             })
             ->values()
             ->foreach(function(Client $client): void {
-                $client->send($this->heartbeat);
+                $client->send($this->connectionHeartbeat);
             });
     }
 }

@@ -36,7 +36,7 @@ final class Unix implements IPC
     private $process;
     private $protocol;
     private $path;
-    private $selectTimeout;
+    private $heartbeat;
 
     public function __construct(
         Sockets $sockets,
@@ -45,7 +45,7 @@ final class Unix implements IPC
         CurrentProcess $process,
         Protocol $protocol,
         PathInterface $path,
-        ElapsedPeriod $selectTimeout
+        ElapsedPeriod $heartbeat
     ) {
         $this->sockets = $sockets;
         $this->filesystem = $filesystem;
@@ -53,7 +53,7 @@ final class Unix implements IPC
         $this->process = $process;
         $this->protocol = $protocol;
         $this->path = \rtrim((string) $path, '/');
-        $this->selectTimeout = $selectTimeout;
+        $this->heartbeat = $heartbeat;
     }
 
     /**
@@ -85,7 +85,7 @@ final class Unix implements IPC
             $this->clock,
             $this->addressOf((string) $name),
             $name,
-            $this->selectTimeout
+            $this->heartbeat
         );
     }
 
@@ -110,7 +110,7 @@ final class Unix implements IPC
                 return;
             }
 
-            $this->process->halt(new Millisecond($this->selectTimeout->milliseconds()));
+            $this->process->halt(new Millisecond($this->heartbeat->milliseconds()));
         } while (true);
     }
 
@@ -121,7 +121,7 @@ final class Unix implements IPC
             $this->protocol,
             $this->clock,
             $this->addressOf((string) $self),
-            $this->selectTimeout,
+            $this->heartbeat,
             $timeout
         );
     }
