@@ -213,4 +213,32 @@ class UnixTest extends TestCase
         }));
         // only test coverage can show that heartbeat messages are sent
     }
+
+    public function testEmergencyShutdown()
+    {
+        $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client.php')
+        );
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            new Address($os->status()->tmp().'/innmind/ipc/server'),
+            new ElapsedPeriod(100),
+            new ElapsedPeriod(3000)
+        );
+
+        $this->expectException(\Exception::class);
+
+        $listen(static function() {
+            throw new \Exception;
+        });
+        // only test coverage can show that show that connections are closed on
+        // user exception
+    }
 }
