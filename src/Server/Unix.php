@@ -118,11 +118,15 @@ final class Unix implements Server
                     $this->pendingStartOk($connection);
                 }
 
-                $this->heartbeat($sockets->get('read')->remove($server));
+                $sockets = $sockets->get('read')->remove($server);
+
+                if ($sockets->empty()) {
+                    $this->discardClosedConnections();
+                }
+
+                $this->heartbeat($sockets);
 
                 $select = $sockets
-                    ->get('read')
-                    ->remove($server)
                     ->reduce(
                         $select,
                         function(Select $select, Connection $connection) use ($listen): Select {
@@ -301,5 +305,33 @@ final class Unix implements Server
             ->foreach(function(Client $client): void {
                 $client->send($this->connectionHeartbeat);
             });
+    }
+
+    private function discardClosedConnections(): void
+    {
+        $closedConnections = $this
+            ->clients
+            ->keys()
+            ->filter(static function(Connection $connection): bool {
+                return $connection->closed();
+            });
+        $this->clients = $closedConnections->reduce(
+            $this->clients,
+            static function(MapInterface $clients, Connection $connection): MapInterface {
+                return $clients->remove($connection);
+            }
+        );
+        $this->pendingStartOk = $closedConnections->reduce(
+            $this->pendingStartOk,
+            static function(MapInterface $clients, Connection $connection): MapInterface {
+                return $clients->remove($connection);
+            }
+        );
+        $this->pendingCloseOk = $closedConnections->reduce(
+            $this->pendingCloseOk,
+            static function(SetInterface $connections, Connection $connection): SetInterface {
+                return $connections->remove($connection);
+            }
+        );
     }
 }
