@@ -111,4 +111,18 @@ class UnixTest extends TestCase
         $this->assertNull($client->close());
         $this->assertTrue($client->closed());
     }
+
+    public function testConsideredClientClosedWhenConnectionClosed()
+    {
+        $client = new Unix(
+            $connection = $this->createMock(Connection::class),
+            $this->createMock(Protocol::class)
+        );
+        $connection
+            ->expects($this->once())
+            ->method('closed')
+            ->willReturn(true);
+
+        $this->assertTrue($client->closed());
+    }
 }

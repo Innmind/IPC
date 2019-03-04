@@ -48,6 +48,6 @@ final class Unix implements Client
 
     public function closed(): bool
     {
-        return $this->closed;
+        return $this->closed || $this->connection->closed();
     }
 }

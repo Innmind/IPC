@@ -29,6 +29,7 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
 };
 use Innmind\Immutable\{
+    MapInterface,
     Map,
     SetInterface,
     Set,
@@ -118,42 +119,45 @@ final class Unix implements Server
                     $this->pendingStartOk($connection);
                 }
 
-                $this->heartbeat($sockets->get('read')->remove($server));
+                $sockets = $sockets->get('read')->remove($server);
 
-                $select = $sockets
-                    ->get('read')
-                    ->remove($server)
-                    ->reduce(
-                        $select,
-                        function(Select $select, Connection $connection) use ($listen): Select {
-                            try {
-                                $message = $this->protocol->decode($connection);
-                            } catch (NoMessage $e) {
-                                // connection closed
-                                return $select->unwatch($connection);
-                            }
+                if ($sockets->empty()) {
+                    $this->discardClosedConnections();
+                }
 
-                            $this->welcome($connection, $message);
-                            $select = $this->cleanup($connection, $message, $select);
+                $this->heartbeat($sockets);
 
-                            if ($this->closing($message)) {
-                                return $this->goodbye($select, $connection);
-                            }
+                $select = $sockets->reduce(
+                    $select,
+                    function(Select $select, Connection $connection) use ($listen): Select {
+                        try {
+                            $message = $this->protocol->decode($connection);
+                        } catch (NoMessage $e) {
+                            // connection closed
+                            return $select->unwatch($connection);
+                        }
 
-                            if ($this->discard($connection, $message)) {
-                                return $select;
-                            }
+                        $this->welcome($connection, $message);
+                        $select = $this->cleanup($connection, $message, $select);
 
-                            $client = $this->clients->get($connection);
-                            $listen($message, $client);
+                        if ($this->closing($message)) {
+                            return $this->goodbye($select, $connection);
+                        }
 
-                            if ($client->closed()) {
-                                $this->expectCloseOk($connection);
-                            }
-
+                        if ($this->discard($connection, $message)) {
                             return $select;
                         }
-                    );
+
+                        $client = $this->clients->get($connection);
+                        $listen($message, $client);
+
+                        if ($client->closed()) {
+                            $this->expectCloseOk($connection);
+                        }
+
+                        return $select;
+                    }
+                );
             } catch (\Throwable $e) {
                 if (!$e instanceof Stop) {
                     $this->emergencyShutdown($server);
@@ -301,5 +305,33 @@ final class Unix implements Server
             ->foreach(function(Client $client): void {
                 $client->send($this->connectionHeartbeat);
             });
+    }
+
+    private function discardClosedConnections(): void
+    {
+        $closedConnections = $this
+            ->clients
+            ->keys()
+            ->filter(static function(Connection $connection): bool {
+                return $connection->closed();
+            });
+        $this->clients = $closedConnections->reduce(
+            $this->clients,
+            static function(MapInterface $clients, Connection $connection): MapInterface {
+                return $clients->remove($connection);
+            }
+        );
+        $this->pendingStartOk = $closedConnections->reduce(
+            $this->pendingStartOk,
+            static function(MapInterface $clients, Connection $connection): MapInterface {
+                return $clients->remove($connection);
+            }
+        );
+        $this->pendingCloseOk = $closedConnections->reduce(
+            $this->pendingCloseOk,
+            static function(SetInterface $connections, Connection $connection): SetInterface {
+                return $connections->remove($connection);
+            }
+        );
     }
 }
