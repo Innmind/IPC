@@ -29,6 +29,7 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
 };
 use Innmind\Immutable\{
+    MapInterface,
     Map,
     SetInterface,
     Set,
