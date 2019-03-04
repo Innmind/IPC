@@ -126,38 +126,37 @@ final class Unix implements Server
 
                 $this->heartbeat($sockets);
 
-                $select = $sockets
-                    ->reduce(
-                        $select,
-                        function(Select $select, Connection $connection) use ($listen): Select {
-                            try {
-                                $message = $this->protocol->decode($connection);
-                            } catch (NoMessage $e) {
-                                // connection closed
-                                return $select->unwatch($connection);
-                            }
+                $select = $sockets->reduce(
+                    $select,
+                    function(Select $select, Connection $connection) use ($listen): Select {
+                        try {
+                            $message = $this->protocol->decode($connection);
+                        } catch (NoMessage $e) {
+                            // connection closed
+                            return $select->unwatch($connection);
+                        }
 
-                            $this->welcome($connection, $message);
-                            $select = $this->cleanup($connection, $message, $select);
+                        $this->welcome($connection, $message);
+                        $select = $this->cleanup($connection, $message, $select);
 
-                            if ($this->closing($message)) {
-                                return $this->goodbye($select, $connection);
-                            }
+                        if ($this->closing($message)) {
+                            return $this->goodbye($select, $connection);
+                        }
 
-                            if ($this->discard($connection, $message)) {
-                                return $select;
-                            }
-
-                            $client = $this->clients->get($connection);
-                            $listen($message, $client);
-
-                            if ($client->closed()) {
-                                $this->expectCloseOk($connection);
-                            }
-
+                        if ($this->discard($connection, $message)) {
                             return $select;
                         }
-                    );
+
+                        $client = $this->clients->get($connection);
+                        $listen($message, $client);
+
+                        if ($client->closed()) {
+                            $this->expectCloseOk($connection);
+                        }
+
+                        return $select;
+                    }
+                );
             } catch (\Throwable $e) {
                 if (!$e instanceof Stop) {
                     $this->emergencyShutdown($server);
