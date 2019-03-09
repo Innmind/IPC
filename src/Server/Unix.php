@@ -126,9 +126,7 @@ final class Unix implements Server
 
                 $sockets = $sockets->get('read')->remove($server);
 
-                if ($sockets->empty()) {
-                    $this->discardClosedConnections();
-                }
+                $this->discardClosedConnections();
 
                 $this->heartbeat($sockets);
 
