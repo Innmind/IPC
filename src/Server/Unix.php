@@ -320,7 +320,13 @@ final class Unix implements Server
                     ->longerThan($this->heartbeat);
             })
             ->foreach(function(Connection $connection, Client $client): void {
-                $client->send($this->connectionHeartbeat);
+                try {
+                    $client->send($this->connectionHeartbeat);
+                } catch (MessageNotSent $e) {
+                    // happens when the client has been forced closed (for example
+                    // with a `kill -9` on the client process)
+                }
+
                 $this->heartbeated($connection);
             });
     }
