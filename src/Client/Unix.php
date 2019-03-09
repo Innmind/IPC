@@ -46,16 +46,8 @@ final class Unix implements Client
 
     public function close(): void
     {
-        if ($this->closed()) {
-            return;
-        }
-
         try {
-            $this->connection->write(
-                $this->protocol->encode(new ConnectionClose)
-            );
-        } catch (Stream | Socket $e) {
-            throw new RuntimeException('', 0, $e);
+            $this->send(new ConnectionClose);
         } finally {
             $this->closed = true;
         }

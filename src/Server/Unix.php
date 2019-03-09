@@ -6,12 +6,8 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
-    Client,
-    Message,
-    Exception\NoMessage,
     Exception\Stop,
     Exception\RuntimeException,
-    Exception\MessageNotSent,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -28,13 +24,10 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
-    PointInTimeInterface,
 };
 use Innmind\Immutable\{
-    MapInterface,
     Map,
     SetInterface,
-    Set,
 };
 
 final class Unix implements Server
@@ -45,16 +38,7 @@ final class Unix implements Server
     private $address;
     private $heartbeat;
     private $timeout;
-    private $connectionStart;
-    private $connectionStartOk;
-    private $connectionClose;
-    private $connectionCloseOk;
-    private $connectionHeartbeat;
-    private $messageReceived;
-    private $pendingStartOk;
-    private $clients;
-    private $pendingCloseOk;
-    private $lastHeartbeat;
+    private $connections;
     private $lastReceivedData;
     private $hadActivity = false;
     private $shuttingDown = false;
@@ -73,16 +57,7 @@ final class Unix implements Server
         $this->address = $address;
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
-        $this->connectionStart = new Message\ConnectionStart;
-        $this->connectionStartOk = new Message\ConnectionStartOk;
-        $this->connectionClose = new Message\ConnectionClose;
-        $this->connectionCloseOk = new Message\ConnectionCloseOk;
-        $this->connectionHeartbeat = new Message\Heartbeat;
-        $this->messageReceived = new Message\MessageReceived;
-        $this->pendingStartOk = Map::of(Connection::class, Client::class);
-        $this->clients = Map::of(Connection::class, Client::class);
-        $this->pendingCloseOk = Set::of(Connection::class);
-        $this->lastHeartbeat = Map::of(Connection::class, PointInTimeInterface::class);
+        $this->connections = Map::of(Connection::class, ClientLifecycle::class);
     }
 
     /**
@@ -91,8 +66,7 @@ final class Unix implements Server
     public function __invoke(callable $listen): void
     {
         // reset state in case the server is restarted
-        $this->clients = $this->clients->clear();
-        $this->pendingCloseOk = $this->pendingCloseOk->clear();
+        $this->connections = $this->connections->clear();
         $this->hadActivity = false;
         $this->shuttingDown = false;
         $this->lastReceivedData = $this->clock->now();
@@ -122,44 +96,30 @@ final class Unix implements Server
                 if ($sockets->get('read')->contains($server) && !$this->shuttingDown) {
                     $connection = $server->accept();
                     $select = $select->forRead($connection);
-                    $this->pendingStartOk($connection);
+                    $this->connections = $this->connections->put(
+                        $connection,
+                        new ClientLifecycle(
+                            $connection,
+                            $this->protocol,
+                            $this->clock,
+                            $this->heartbeat
+                        )
+                    );
                 }
 
                 $sockets = $sockets->get('read')->remove($server);
-
-                $this->discardClosedConnections();
 
                 $this->heartbeat($sockets);
 
                 $select = $sockets->reduce(
                     $select,
                     function(Select $select, Connection $connection) use ($listen): Select {
-                        $this->heartbeated($connection);
+                        $lifecycle = $this->connections->get($connection);
+                        $lifecycle->notify($listen);
 
-                        try {
-                            $message = $this->protocol->decode($connection);
-                        } catch (NoMessage $e) {
-                            // connection closed
-                            return $select->unwatch($connection);
-                        }
-
-                        $this->welcome($connection, $message);
-                        $select = $this->cleanup($connection, $message, $select);
-
-                        if ($this->closing($message)) {
-                            return $this->goodbye($select, $connection);
-                        }
-
-                        if ($this->discard($connection, $message)) {
-                            return $select;
-                        }
-
-                        $client = $this->clients->get($connection);
-                        $client->send($this->messageReceived);
-                        $listen($message, $client);
-
-                        if ($client->closed()) {
-                            $this->expectCloseOk($connection);
+                        if ($lifecycle->toBeGarbageCollected()) {
+                            $this->connections = $this->connections->remove($connection);
+                            $select = $select->unwatch($connection);
                         }
 
                         return $select;
@@ -180,81 +140,6 @@ final class Unix implements Server
         } while (true);
     }
 
-    private function pendingStartOk(Connection $connection): void
-    {
-        $client = new Client\Unix(
-            $connection,
-            $this->protocol
-        );
-        $this->pendingStartOk = $this->pendingStartOk->put($connection, $client);
-        $client->send($this->connectionStart);
-        $this->heartbeated($connection);
-    }
-
-    private function welcome(Connection $connection, Message $message): void
-    {
-        if (!$this->pendingStartOk->contains($connection)) {
-            return;
-        }
-
-        if (!$this->connectionStartOk->equals($message)) {
-            return;
-        }
-
-        $this->clients = $this->clients->put(
-            $connection,
-            $this->pendingStartOk->get($connection)
-        );
-        $this->pendingStartOk = $this->pendingStartOk->remove($connection);
-    }
-
-    private function discard(Connection $connection, Message $message): bool
-    {
-        return !$this->clients->contains($connection) ||
-            $this->pendingCloseOk->contains($connection) ||
-            $this->connectionStart->equals($message) ||
-            $this->connectionStartOk->equals($message) ||
-            $this->connectionClose->equals($message) ||
-            $this->connectionCloseOk->equals($message) ||
-            $this->connectionHeartbeat->equals($message);
-    }
-
-    private function closing(Message $message): bool
-    {
-        return $this->connectionClose->equals($message);
-    }
-
-    private function goodbye(Select $select, Connection $connection): Select
-    {
-        $this->clients->get($connection)->send($this->connectionCloseOk);
-        $connection->close();
-        $this->clients = $this->clients->remove($connection);
-
-        return $select->unwatch($connection);
-    }
-
-    private function cleanup(Connection $connection, Message $message, Select $select): Select
-    {
-        if (!$this->pendingCloseOk->contains($connection)) {
-            return $select;
-        }
-
-        if (!$this->connectionCloseOk->equals($message)) {
-            return $select;
-        }
-
-        $connection->close();
-        $this->pendingCloseOk = $this->pendingCloseOk->remove($connection);
-        $this->clients = $this->clients->remove($connection);
-
-        return $select->unwatch($connection);
-    }
-
-    private function expectCloseOk(Connection $connection): void
-    {
-        $this->pendingCloseOk = $this->pendingCloseOk->add($connection);
-    }
-
     private function monitorTimeout(): void
     {
         if (!$this->timeout instanceof ElapsedPeriodInterface) {
@@ -272,10 +157,12 @@ final class Unix implements Server
     private function startShutdown(): void
     {
         $this->shuttingDown = true;
-        $this->clients->foreach(function(Connection $connection, Client $client): void {
-            $client->close();
-            $this->expectCloseOk($connection);
-        });
+        $this
+            ->connections
+            ->values()
+            ->foreach(function(ClientLifecycle $client): void {
+                $client->shutdown();
+            });
     }
 
     private function monitorTermination(ServerSocket $server): void
@@ -284,11 +171,7 @@ final class Unix implements Server
             return;
         }
 
-        $pending = $this->pendingCloseOk->filter(static function(Connection $connection): bool {
-            return !$connection->closed();
-        });
-
-        if ($pending->empty()) {
+        if ($this->connections->empty()) {
             $server->close();
 
             throw new Stop;
@@ -297,7 +180,7 @@ final class Unix implements Server
 
     private function emergencyShutdown(ServerSocket $server): void
     {
-        $this->clients->foreach(static function(Connection $connection): void {
+        $this->connections->foreach(static function(Connection $connection): void {
             $connection->close();
         });
         $server->close();
@@ -309,62 +192,13 @@ final class Unix implements Server
     private function heartbeat(SetInterface $activeSockets): void
     {
         $this
-            ->clients
+            ->connections
             ->filter(static function(Connection $connection) use ($activeSockets): bool {
                 return !$activeSockets->contains($connection);
             })
-            ->filter(function(Connection $connection): bool {
-                return $this
-                    ->clock
-                    ->now()
-                    ->elapsedSince($this->lastHeartbeat->get($connection))
-                    ->longerThan($this->heartbeat);
-            })
-            ->foreach(function(Connection $connection, Client $client): void {
-                try {
-                    $client->send($this->connectionHeartbeat);
-                } catch (MessageNotSent $e) {
-                    // happens when the client has been forced closed (for example
-                    // with a `kill -9` on the client process)
-                }
-
-                $this->heartbeated($connection);
+            ->values()
+            ->foreach(function(ClientLifecycle $client): void {
+                $client->heartbeat();
             });
-    }
-
-    private function discardClosedConnections(): void
-    {
-        $closedConnections = $this
-            ->clients
-            ->keys()
-            ->filter(static function(Connection $connection): bool {
-                return $connection->closed();
-            });
-        $this->clients = $closedConnections->reduce(
-            $this->clients,
-            static function(MapInterface $clients, Connection $connection): MapInterface {
-                return $clients->remove($connection);
-            }
-        );
-        $this->pendingStartOk = $closedConnections->reduce(
-            $this->pendingStartOk,
-            static function(MapInterface $clients, Connection $connection): MapInterface {
-                return $clients->remove($connection);
-            }
-        );
-        $this->pendingCloseOk = $closedConnections->reduce(
-            $this->pendingCloseOk,
-            static function(SetInterface $connections, Connection $connection): SetInterface {
-                return $connections->remove($connection);
-            }
-        );
-    }
-
-    private function heartbeated(Connection $connection): void
-    {
-        $this->lastHeartbeat = $this->lastHeartbeat->put(
-            $connection,
-            $this->clock->now()
-        );
     }
 }
