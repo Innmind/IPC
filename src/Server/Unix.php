@@ -276,7 +276,11 @@ final class Unix implements Server
             return;
         }
 
-        if ($this->pendingCloseOk->empty()) {
+        $pending = $this->pendingCloseOk->filter(static function(Connection $connection): bool {
+            return !$connection->closed();
+        });
+
+        if ($pending->empty()) {
             $server->close();
 
             throw new Stop;
