@@ -926,6 +926,114 @@ class ClientLifecycleTest extends TestCase
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
 
+    public function testShutdownEvenWhenStreamErrorWhenClosingConnection()
+    {
+        $connection = $this->createMock(Connection::class);
+        $protocol = $this->createMock(Protocol::class);
+        $clock = $this->createMock(TimeContinuumInterface::class);
+        $heartbeat = new ElapsedPeriod(1000);
+        $connection
+            ->expects($this->at(0))
+            ->method('closed')
+            ->willReturn(false);
+        $protocol
+            ->expects($this->at(0))
+            ->method('encode')
+            ->with(new ConnectionStart)
+            ->willReturn(Str::of('start'));
+        $connection
+            ->expects($this->at(1))
+            ->method('write')
+            ->with(Str::of('start'));
+        $connection
+            ->expects($this->at(2))
+            ->method('closed')
+            ->willReturn(false);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionClose)
+            ->willReturn(Str::of('close'));
+        $connection
+            ->expects($this->at(3))
+            ->method('write')
+            ->with(Str::of('close'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($connection)
+            ->willReturn(new ConnectionCloseOk);
+        $connection
+            ->expects($this->at(4))
+            ->method('close')
+            ->will($this->throwException($this->createMock(StreamException::class)));
+
+        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $called = false;
+
+        $this->assertNull($lifecycle->shutdown());
+        $this->assertFalse($lifecycle->toBeGarbageCollected());
+        $lifecycle->notify(function() use (&$called) {
+            $called = true;
+        });
+        $this->assertFalse($called);
+        $this->assertTrue($lifecycle->toBeGarbageCollected());
+    }
+
+    public function testShutdownEvenWhenSocketErrorWhenClosingConnection()
+    {
+        $connection = $this->createMock(Connection::class);
+        $protocol = $this->createMock(Protocol::class);
+        $clock = $this->createMock(TimeContinuumInterface::class);
+        $heartbeat = new ElapsedPeriod(1000);
+        $connection
+            ->expects($this->at(0))
+            ->method('closed')
+            ->willReturn(false);
+        $protocol
+            ->expects($this->at(0))
+            ->method('encode')
+            ->with(new ConnectionStart)
+            ->willReturn(Str::of('start'));
+        $connection
+            ->expects($this->at(1))
+            ->method('write')
+            ->with(Str::of('start'));
+        $connection
+            ->expects($this->at(2))
+            ->method('closed')
+            ->willReturn(false);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionClose)
+            ->willReturn(Str::of('close'));
+        $connection
+            ->expects($this->at(3))
+            ->method('write')
+            ->with(Str::of('close'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('decode')
+            ->with($connection)
+            ->willReturn(new ConnectionCloseOk);
+        $connection
+            ->expects($this->at(4))
+            ->method('close')
+            ->will($this->throwException($this->createMock(SocketException::class)));
+
+        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $called = false;
+
+        $this->assertNull($lifecycle->shutdown());
+        $this->assertFalse($lifecycle->toBeGarbageCollected());
+        $lifecycle->notify(function() use (&$called) {
+            $called = true;
+        });
+        $this->assertFalse($called);
+        $this->assertTrue($lifecycle->toBeGarbageCollected());
+    }
+
     public function testConsiderToBeGarbageCollectedWhenFailToClose()
     {
         $connection = $this->createMock(Connection::class);

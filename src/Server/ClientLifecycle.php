@@ -16,7 +16,11 @@ use Innmind\IPC\{
     Exception\NoMessage,
     Exception\MessageNotSent,
 };
-use Innmind\Socket\Server\Connection;
+use Innmind\Socket\{
+    Server\Connection,
+    Exception\Exception as SocketException,
+};
+use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriod,
