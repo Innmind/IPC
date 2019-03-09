@@ -9,8 +9,13 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Message\ConnectionClose,
+    Exception\MessageNotSent,
 };
-use Innmind\Socket\Server\Connection;
+use Innmind\Socket\{
+    Server\Connection,
+    Exception\Exception as SocketException,
+};
+use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -124,5 +129,39 @@ class UnixTest extends TestCase
             ->willReturn(true);
 
         $this->assertTrue($client->closed());
+    }
+
+    public function testThrowWhenCantSendMessageDueToSocketError()
+    {
+        $client = new Unix(
+            $connection = $this->createMock(Connection::class),
+            $this->createMock(Protocol::class)
+        );
+        $message = $this->createMock(Message::class);
+        $connection
+            ->expects($this->once())
+            ->method('write')
+            ->will($this->throwException($this->createMock(SocketException::class)));
+
+        $this->expectException(MessageNotSent::class);
+
+        $client->send($message);
+    }
+
+    public function testThrowWhenCantSendMessageDueToStreamError()
+    {
+        $client = new Unix(
+            $connection = $this->createMock(Connection::class),
+            $this->createMock(Protocol::class)
+        );
+        $message = $this->createMock(Message::class);
+        $connection
+            ->expects($this->once())
+            ->method('write')
+            ->will($this->throwException($this->createMock(StreamException::class)));
+
+        $this->expectException(MessageNotSent::class);
+
+        $client->send($message);
     }
 }

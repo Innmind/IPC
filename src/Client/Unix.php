@@ -8,8 +8,13 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Message\ConnectionClose,
+    Exception\MessageNotSent,
 };
-use Innmind\Socket\Server\Connection;
+use Innmind\Socket\{
+    Server\Connection,
+    Exception\Exception as Socket,
+};
+use Innmind\Stream\Exception\Exception as Stream;
 
 final class Unix implements Client
 {
@@ -29,9 +34,13 @@ final class Unix implements Client
             return;
         }
 
-        $this->connection->write(
-            $this->protocol->encode($message)
-        );
+        try {
+            $this->connection->write(
+                $this->protocol->encode($message)
+            );
+        } catch (Stream | Socket $e) {
+            throw new MessageNotSent('', 0, $e);
+        }
     }
 
     public function close(): void
