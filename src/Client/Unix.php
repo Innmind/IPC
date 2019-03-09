@@ -8,8 +8,14 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Message\ConnectionClose,
+    Exception\MessageNotSent,
+    Exception\RuntimeException,
 };
-use Innmind\Socket\Server\Connection;
+use Innmind\Socket\{
+    Server\Connection,
+    Exception\Exception as Socket,
+};
+use Innmind\Stream\Exception\Exception as Stream;
 
 final class Unix implements Client
 {
@@ -29,9 +35,13 @@ final class Unix implements Client
             return;
         }
 
-        $this->connection->write(
-            $this->protocol->encode($message)
-        );
+        try {
+            $this->connection->write(
+                $this->protocol->encode($message)
+            );
+        } catch (Stream | Socket $e) {
+            throw new MessageNotSent('', 0, $e);
+        }
     }
 
     public function close(): void
@@ -40,10 +50,15 @@ final class Unix implements Client
             return;
         }
 
-        $this->connection->write(
-            $this->protocol->encode(new ConnectionClose)
-        );
-        $this->closed = true;
+        try {
+            $this->connection->write(
+                $this->protocol->encode(new ConnectionClose)
+            );
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
+        } finally {
+            $this->closed = true;
+        }
     }
 
     public function closed(): bool
