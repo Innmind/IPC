@@ -25,7 +25,7 @@ final class Binary implements Protocol
             throw new MessageContentTooLong((string) $content->length());
         }
 
-        return Str::of('%s%s%s%s%s')->sprintf(
+        return Str::of('%s%s%s%s%s', 'ASCII')->sprintf(
             \pack('n', $mediaType->length()),
             $mediaType,
             \pack('N', $content->length()),

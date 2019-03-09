@@ -39,6 +39,7 @@ class BinaryTest extends TestCase
             \pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE),
             (string) $binary
         );
+        $this->assertSame('ASCII', (string) $binary->encoding());
     }
 
     public function testDecode()
