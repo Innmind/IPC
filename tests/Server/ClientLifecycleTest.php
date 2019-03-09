@@ -846,19 +846,6 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->willReturn($message);
-        $protocol
-            ->expects($this->at(5))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(5))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(6))
-            ->method('write')
-            ->with(Str::of('received'));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
