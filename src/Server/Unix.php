@@ -27,6 +27,7 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    PointInTimeInterface,
 };
 use Innmind\Immutable\{
     MapInterface,
@@ -52,6 +53,7 @@ final class Unix implements Server
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
+    private $lastHeartbeat;
     private $lastReceivedData;
     private $hadActivity = false;
     private $shuttingDown = false;
@@ -79,6 +81,7 @@ final class Unix implements Server
         $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
+        $this->lastHeartbeat = Map::of(Connection::class, PointInTimeInterface::class);
     }
 
     /**
@@ -132,6 +135,8 @@ final class Unix implements Server
                 $select = $sockets->reduce(
                     $select,
                     function(Select $select, Connection $connection) use ($listen): Select {
+                        $this->heartbeated($connection);
+
                         try {
                             $message = $this->protocol->decode($connection);
                         } catch (NoMessage $e) {
@@ -184,6 +189,7 @@ final class Unix implements Server
         );
         $this->pendingStartOk = $this->pendingStartOk->put($connection, $client);
         $client->send($this->connectionStart);
+        $this->heartbeated($connection);
     }
 
     private function welcome(Connection $connection, Message $message): void
@@ -308,9 +314,16 @@ final class Unix implements Server
             ->filter(static function(Connection $connection) use ($activeSockets): bool {
                 return !$activeSockets->contains($connection);
             })
-            ->values()
-            ->foreach(function(Client $client): void {
+            ->filter(function(Connection $connection): bool {
+                return $this
+                    ->clock
+                    ->now()
+                    ->elapsedSince($this->lastHeartbeat->get($connection))
+                    ->longerThan($this->heartbeat);
+            })
+            ->foreach(function(Connection $connection, Client $client): void {
                 $client->send($this->connectionHeartbeat);
+                $this->heartbeated($connection);
             });
     }
 
@@ -339,6 +352,14 @@ final class Unix implements Server
             static function(SetInterface $connections, Connection $connection): SetInterface {
                 return $connections->remove($connection);
             }
+        );
+    }
+
+    private function heartbeated(Connection $connection): void
+    {
+        $this->lastHeartbeat = $this->lastHeartbeat->put(
+            $connection,
+            $this->clock->now()
         );
     }
 }
