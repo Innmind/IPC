@@ -52,7 +52,12 @@ final class Unix implements Process
         Name $name,
         ElapsedPeriod $selectTimeout
     ) {
-        $this->socket = $sockets->connectTo($address);
+        try {
+            $this->socket = $sockets->connectTo($address);
+        } catch (Stream | Socket $e) {
+            throw new FailedToConnect((string) $name, 0, $e);
+        }
+
         $this->select = (new Select($selectTimeout))->forRead($this->socket);
         $this->protocol = $protocol;
         $this->clock = $clock;

@@ -769,4 +769,58 @@ class UnixTest extends TestCase
             $this->assertTrue(true);
         }
     }
+
+    public function testThrowWhenStreamErrorWhenConnecting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+
+        try {
+            new Unix(
+                $sockets,
+                $protocol,
+                $this->createMock(TimeContinuumInterface::class),
+                $address,
+                new Name('foo'),
+                new ElapsedPeriod(1000)
+            );
+
+            $this->fail('it should throw');
+        } catch (FailedToConnect $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
+    }
+
+    public function testThrowWhenSocketErrorWhenConnecting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+
+        try {
+            new Unix(
+                $sockets,
+                $protocol,
+                $this->createMock(TimeContinuumInterface::class),
+                $address,
+                new Name('foo'),
+                new ElapsedPeriod(1000)
+            );
+
+            $this->fail('it should throw');
+        } catch (FailedToConnect $e) {
+            $this->assertSame($expected, $e->getPrevious());
+        }
+    }
 }
