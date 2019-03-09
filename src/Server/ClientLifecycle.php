@@ -105,8 +105,6 @@ final class ClientLifecycle
             }
         }
 
-        $this->client->send(new MessageReceived);
-
         if (
             $message->equals(new ConnectionStart) ||
             $message->equals(new ConnectionStartOk) ||
@@ -119,6 +117,7 @@ final class ClientLifecycle
             return;
         }
 
+        $this->client->send(new MessageReceived);
         $notify($message, $this->client);
 
         if ($this->client->closed()) {
