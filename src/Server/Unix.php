@@ -113,7 +113,7 @@ final class Unix implements Server
                     $this->lastReceivedData = $this->clock->now();
                 }
 
-                if ($sockets->get('read')->contains($server)) {
+                if ($sockets->get('read')->contains($server) && !$this->shuttingDown) {
                     $connection = $server->accept();
                     $select = $select->forRead($connection);
                     $this->pendingStartOk($connection);
