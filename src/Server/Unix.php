@@ -48,6 +48,7 @@ final class Unix implements Server
     private $connectionClose;
     private $connectionCloseOk;
     private $connectionHeartbeat;
+    private $messageReceived;
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
@@ -74,6 +75,7 @@ final class Unix implements Server
         $this->connectionClose = new Message\ConnectionClose;
         $this->connectionCloseOk = new Message\ConnectionCloseOk;
         $this->connectionHeartbeat = new Message\Heartbeat;
+        $this->messageReceived = new Message\MessageReceived;
         $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
@@ -113,7 +115,7 @@ final class Unix implements Server
                     $this->lastReceivedData = $this->clock->now();
                 }
 
-                if ($sockets->get('read')->contains($server)) {
+                if ($sockets->get('read')->contains($server) && !$this->shuttingDown) {
                     $connection = $server->accept();
                     $select = $select->forRead($connection);
                     $this->pendingStartOk($connection);
@@ -149,6 +151,7 @@ final class Unix implements Server
                         }
 
                         $client = $this->clients->get($connection);
+                        $client->send($this->messageReceived);
                         $listen($message, $client);
 
                         if ($client->closed()) {
@@ -276,7 +279,11 @@ final class Unix implements Server
             return;
         }
 
-        if ($this->pendingCloseOk->empty()) {
+        $pending = $this->pendingCloseOk->filter(static function(Connection $connection): bool {
+            return !$connection->closed();
+        });
+
+        if ($pending->empty()) {
             $server->close();
 
             throw new Stop;
