@@ -17,6 +17,7 @@ use Innmind\IPC\{
     Exception\Timedout,
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
+    Exception\MessageNotSent,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -77,14 +78,14 @@ final class Unix implements Process
             return;
         }
 
-        try {
-            foreach ($messages as $message) {
-                $this->socket->write(
-                    $this->protocol->encode($message)
-                );
+        foreach ($messages as $message) {
+            try {
+                $this->sendMessage($message);
+
+                $this->wait(); // for message acknowledgement
+            } catch (RuntimeException $e) {
+                throw new MessageNotSent('', 0, $e);
             }
-        } catch (Stream | Socket $e) {
-            throw new RuntimeException('', 0, $e);
         }
     }
 
@@ -109,7 +110,7 @@ final class Unix implements Process
             $receivedData = $sockets->get('read')->contains($this->socket);
 
             if (!$receivedData) {
-                $this->send(new Heartbeat);
+                $this->sendMessage(new Heartbeat);
                 $this->timeout($timeout);
             }
         } while (!$receivedData);
@@ -127,7 +128,7 @@ final class Unix implements Process
         }
 
         if ($message->equals(new ConnectionClose)) {
-            $this->send(new ConnectionCloseOk);
+            $this->sendMessage(new ConnectionCloseOk);
             $this->cut();
 
             throw new ConnectionClosed;
@@ -142,7 +143,7 @@ final class Unix implements Process
             return;
         }
 
-        $this->send(new ConnectionClose);
+        $this->sendMessage(new ConnectionClose);
         $message = $this->wait();
 
         if (!$message->equals(new ConnectionCloseOk)) {
@@ -171,7 +172,7 @@ final class Unix implements Process
             throw new FailedToConnect((string) $this->name());
         }
 
-        $this->send(new ConnectionStartOk);
+        $this->sendMessage(new ConnectionStartOk);
     }
 
     private function cut(): void
@@ -190,6 +191,21 @@ final class Unix implements Process
 
         if ($iteration->longerThan($timeout)) {
             throw new Timedout;
+        }
+    }
+
+    private function sendMessage(Message $message): void
+    {
+        if ($this->closed()) {
+            return;
+        }
+
+        try {
+            $this->socket->write(
+                $this->protocol->encode($message)
+            );
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
         }
     }
 }

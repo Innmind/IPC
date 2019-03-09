@@ -19,6 +19,7 @@ use Innmind\IPC\{
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
     Exception\Timedout,
+    Exception\MessageNotSent,
 };
 use Innmind\OperatingSystem\{
     Factory,
@@ -301,9 +302,11 @@ class UnixTest extends TestCase
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
         $socket
+            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start-ok'));
         $socket
+            ->expects($this->exactly(3))
             ->method('closed')
             ->will($this->onConsecutiveCalls(
                 false,
@@ -822,5 +825,61 @@ class UnixTest extends TestCase
         } catch (FailedToConnect $e) {
             $this->assertSame($expected, $e->getPrevious());
         }
+    }
+
+    public function testThrowWhenFailedToSendMessage()
+    {
+        $message = $this->createMock(Message::class);
+
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = new Address('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn($socket = $this->createMock(Client::class));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->at(0))
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->at(1))
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $protocol
+            ->expects($this->at(2))
+            ->method('encode')
+            ->with($message)
+            ->willReturn(Str::of('message-to-send'));
+        $socket
+            ->method('write')
+            ->with($this->callback(static function($message): bool {
+                if ((string) $message === 'message-to-send') {
+                    throw new RuntimeException;
+                }
+
+                return true;
+            }));
+
+        $process = new Unix(
+            $sockets,
+            $protocol,
+            $this->createMock(TimeContinuumInterface::class),
+            $address,
+            $name = new Name('foo'),
+            new ElapsedPeriod(1000)
+        );
+
+        $this->expectException(MessageNotSent::class);
+
+        $process->send($message);
     }
 }

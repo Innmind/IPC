@@ -48,6 +48,7 @@ final class Unix implements Server
     private $connectionClose;
     private $connectionCloseOk;
     private $connectionHeartbeat;
+    private $messageReceived;
     private $pendingStartOk;
     private $clients;
     private $pendingCloseOk;
@@ -74,6 +75,7 @@ final class Unix implements Server
         $this->connectionClose = new Message\ConnectionClose;
         $this->connectionCloseOk = new Message\ConnectionCloseOk;
         $this->connectionHeartbeat = new Message\Heartbeat;
+        $this->messageReceived = new Message\MessageReceived;
         $this->pendingStartOk = Map::of(Connection::class, Client::class);
         $this->clients = Map::of(Connection::class, Client::class);
         $this->pendingCloseOk = Set::of(Connection::class);
@@ -149,6 +151,7 @@ final class Unix implements Server
                         }
 
                         $client = $this->clients->get($connection);
+                        $client->send($this->messageReceived);
                         $listen($message, $client);
 
                         if ($client->closed()) {
