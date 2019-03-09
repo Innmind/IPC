@@ -118,6 +118,7 @@ final class ClientLifecycle
             // never notify with a protocol message
             return;
         }
+
         $notify($message, $this->client);
 
         if ($this->client->closed()) {
