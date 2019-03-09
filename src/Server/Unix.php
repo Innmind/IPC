@@ -11,6 +11,7 @@ use Innmind\IPC\{
     Exception\NoMessage,
     Exception\Stop,
     Exception\RuntimeException,
+    Exception\MessageNotSent,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
