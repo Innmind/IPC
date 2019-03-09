@@ -161,7 +161,11 @@ final class Unix implements Process
 
     private function open(): void
     {
-        $message = $this->wait();
+        try {
+            $message = $this->wait();
+        } catch (RuntimeException $e) {
+            throw new FailedToConnect((string) $this->name(), 0, $e);
+        }
 
         if (!$message->equals(new ConnectionStart)) {
             throw new FailedToConnect((string) $this->name());
