@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Message,
     Message\ConnectionClose,
     Exception\MessageNotSent,
+    Exception\RuntimeException,
 };
 use Innmind\Socket\{
     Server\Connection,
@@ -163,5 +164,47 @@ class UnixTest extends TestCase
         $this->expectException(MessageNotSent::class);
 
         $client->send($message);
+    }
+
+    public function testThrowWhenCantProperlyCloseDueToSocketError()
+    {
+        $client = new Unix(
+            $connection = $this->createMock(Connection::class),
+            $this->createMock(Protocol::class)
+        );
+        $message = $this->createMock(Message::class);
+        $connection
+            ->expects($this->once())
+            ->method('write')
+            ->will($this->throwException($this->createMock(SocketException::class)));
+
+        try {
+            $client->close();
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertTrue($client->closed());
+        }
+    }
+
+    public function testThrowWhenCantProperlyCloseDueToStreamError()
+    {
+        $client = new Unix(
+            $connection = $this->createMock(Connection::class),
+            $this->createMock(Protocol::class)
+        );
+        $message = $this->createMock(Message::class);
+        $connection
+            ->expects($this->once())
+            ->method('write')
+            ->will($this->throwException($this->createMock(StreamException::class)));
+
+        try {
+            $client->close();
+
+            $this->fail('it should throw');
+        } catch (RuntimeException $e) {
+            $this->assertTrue($client->closed());
+        }
     }
 }

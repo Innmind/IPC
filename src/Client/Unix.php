@@ -9,6 +9,7 @@ use Innmind\IPC\{
     Message,
     Message\ConnectionClose,
     Exception\MessageNotSent,
+    Exception\RuntimeException,
 };
 use Innmind\Socket\{
     Server\Connection,
@@ -49,10 +50,15 @@ final class Unix implements Client
             return;
         }
 
-        $this->connection->write(
-            $this->protocol->encode(new ConnectionClose)
-        );
-        $this->closed = true;
+        try {
+            $this->connection->write(
+                $this->protocol->encode(new ConnectionClose)
+            );
+        } catch (Stream | Socket $e) {
+            throw new RuntimeException('', 0, $e);
+        } finally {
+            $this->closed = true;
+        }
     }
 
     public function closed(): bool
