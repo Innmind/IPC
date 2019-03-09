@@ -182,7 +182,7 @@ class UnixTest extends TestCase
             $client->close();
 
             $this->fail('it should throw');
-        } catch (RuntimeException $e) {
+        } catch (MessageNotSent $e) {
             $this->assertTrue($client->closed());
         }
     }
@@ -203,7 +203,7 @@ class UnixTest extends TestCase
             $client->close();
 
             $this->fail('it should throw');
-        } catch (RuntimeException $e) {
+        } catch (MessageNotSent $e) {
             $this->assertTrue($client->closed());
         }
     }
