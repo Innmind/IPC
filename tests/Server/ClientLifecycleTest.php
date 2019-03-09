@@ -910,6 +910,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->willReturn(new ConnectionCloseOk);
+        $connection
+            ->expects($this->at(4))
+            ->method('close');
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
