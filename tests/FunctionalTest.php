@@ -35,6 +35,10 @@ class FunctionalTest extends TestCase
 
     public function testKillServer()
     {
+        if (getenv('CI')) {
+            return;
+        }
+
         $os = Factory::build();
         @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
@@ -45,8 +49,7 @@ class FunctionalTest extends TestCase
         $os->process()->halt(new Second(1));
         $processes->kill($server->pid(), Signal::interrupt());
 
-        $os->process()->halt(new Second(1));
-        $this->assertTrue($server->exitCode()->isSuccessful());
+        $this->assertTrue($server->wait()->exitCode()->isSuccessful());
         $this->assertFalse(file_exists($os->status()->tmp().'/innmind/ipc/server.sock'));
     }
 }
