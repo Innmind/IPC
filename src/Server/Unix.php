@@ -23,6 +23,7 @@ use Innmind\Socket\{
 use Innmind\Stream\{
     Select,
     Exception\Exception as Stream,
+    Exception\SelectFailed,
 };
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
@@ -92,7 +93,17 @@ final class Unix implements Server
         $select = (new Select($this->heartbeat))->forRead($server);
 
         do {
-            $sockets = $select();
+            try {
+                $sockets = $select();
+            } catch (SelectFailed $e) {
+                if ($this->shuttingDown) {
+                    $this->emergencyShutdown($server);
+
+                    return;
+                }
+
+                throw $e;
+            }
 
             try {
                 if (!$sockets->get('read')->empty()) {
