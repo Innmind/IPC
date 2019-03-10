@@ -4,7 +4,11 @@ declare(strict_types = 1);
 namespace Tests\Innmind\IPC;
 
 use Innmind\OperatingSystem\Factory;
-use Innmind\Server\Control\Server\Command;
+use Innmind\Server\Control\Server\{
+    Command,
+    Signal,
+};
+use Innmind\TimeContinuum\Period\Earth\Second;
 use PHPUnit\Framework\TestCase;
 
 class FunctionalTest extends TestCase
@@ -27,5 +31,21 @@ class FunctionalTest extends TestCase
             ->output();
 
         $this->assertSame('hello world', $output);
+    }
+
+    public function testKillServer()
+    {
+        $os = Factory::build();
+        @unlink($os->status()->tmp().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $server = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/eternal-server.php')
+        );
+        $os->process()->halt(new Second(1));
+        $processes->kill($server->pid(), Signal::interrupt());
+
+        $this->assertTrue($server->wait()->exitCode()->isSuccessful());
+        $this->assertFalse(file_exists($os->status()->tmp().'/innmind/ipc/server.sock'));
     }
 }
