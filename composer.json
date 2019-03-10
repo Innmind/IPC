@@ -19,7 +19,7 @@
         "innmind/immutable": "^2.13",
         "innmind/filesystem": "^3.3",
         "innmind/time-continuum": "^1.3",
-        "innmind/operating-system": "^1.4",
+        "innmind/operating-system": "^1.6",
         "innmind/socket": "^2.0",
         "innmind/url": "^2.0",
         "innmind/time-warp": "^1.0"
