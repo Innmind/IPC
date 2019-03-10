@@ -45,7 +45,8 @@ class FunctionalTest extends TestCase
         $os->process()->halt(new Second(1));
         $processes->kill($server->pid(), Signal::interrupt());
 
-        $this->assertTrue($server->wait()->exitCode()->isSuccessful());
+        $os->process()->halt(new Second(1));
+        $this->assertTrue($server->exitCode()->isSuccessful());
         $this->assertFalse(file_exists($os->status()->tmp().'/innmind/ipc/server.sock'));
     }
 }
