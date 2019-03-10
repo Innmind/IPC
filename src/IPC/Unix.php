@@ -123,6 +123,7 @@ final class Unix implements IPC
             $this->sockets,
             $this->protocol,
             $this->clock,
+            $this->process->signals(),
             $this->addressOf((string) $self),
             $this->heartbeat,
             $timeout

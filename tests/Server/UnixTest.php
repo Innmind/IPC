@@ -13,7 +13,9 @@ use Innmind\IPC\{
 use Innmind\OperatingSystem\{
     Factory,
     Sockets,
+    CurrentProcess\Signals,
 };
+use Innmind\Signals\Signal;
 use Innmind\Server\Control\Server\Command;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
@@ -40,6 +42,7 @@ class UnixTest extends TestCase
                 $this->createMock(Sockets::class),
                 $this->createMock(Protocol::class),
                 $this->createMock(TimeContinuumInterface::class),
+                $this->createMock(Signals::class),
                 new Address('/tmp/foo.sock'),
                 new ElapsedPeriod(1000)
             )
@@ -52,6 +55,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(Signals::class),
             new Address('/tmp/foo.sock'),
             new ElapsedPeriod(1000)
         );
@@ -75,6 +79,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(Signals::class),
             new Address('/tmp/foo.sock'),
             new ElapsedPeriod(1000)
         );
@@ -98,6 +103,7 @@ class UnixTest extends TestCase
             $sockets = $this->createMock(Sockets::class),
             $this->createMock(Protocol::class),
             $clock = $this->createMock(TimeContinuumInterface::class),
+            $this->createMock(Signals::class),
             $address = new Address('/tmp/foo.sock'),
             new ElapsedPeriod(10),
             $timeout = $this->createMock(ElapsedPeriodInterface::class)
@@ -142,6 +148,87 @@ class UnixTest extends TestCase
         $this->assertNull($receive(function(){}));
     }
 
+    public function testInstallSignalsHandler()
+    {
+        $signals = $this->createMock(Signals::class);
+        $signals
+            ->expects($this->at(0))
+            ->method('listen')
+            ->with(
+                Signal::hangup(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+        $signals
+            ->expects($this->at(1))
+            ->method('listen')
+            ->with(
+                Signal::interrupt(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+        $signals
+            ->expects($this->at(2))
+            ->method('listen')
+            ->with(
+                Signal::abort(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+        $signals
+            ->expects($this->at(3))
+            ->method('listen')
+            ->with(
+                Signal::terminate(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+        $signals
+            ->expects($this->at(4))
+            ->method('listen')
+            ->with(
+                Signal::terminalStop(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+        $signals
+            ->expects($this->at(5))
+            ->method('listen')
+            ->with(
+                Signal::alarm(),
+                $this->callback(static function($listen): bool {
+                    $listen();
+
+                    return true;
+                })
+            );
+
+        new Unix(
+            $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            $this->createMock(TimeContinuumInterface::class),
+            $signals,
+            new Address('/tmp/foo.sock'),
+            new ElapsedPeriod(10),
+            $this->createMock(ElapsedPeriodInterface::class)
+        );
+    }
+
     public function testShutdownProcess()
     {
         $os = Factory::build();
@@ -156,6 +243,7 @@ class UnixTest extends TestCase
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
+            $os->process()->signals(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
             new ElapsedPeriod(100),
             new ElapsedPeriod(10000)
@@ -180,6 +268,7 @@ class UnixTest extends TestCase
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
+            $os->process()->signals(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
             new ElapsedPeriod(100),
             new ElapsedPeriod(3000)
@@ -204,6 +293,7 @@ class UnixTest extends TestCase
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
+            $os->process()->signals(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
             new ElapsedPeriod(100),
             new ElapsedPeriod(3000)
@@ -228,6 +318,7 @@ class UnixTest extends TestCase
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
+            $os->process()->signals(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
             new ElapsedPeriod(100),
             new ElapsedPeriod(3000)
@@ -256,6 +347,7 @@ class UnixTest extends TestCase
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
+            $os->process()->signals(),
             new Address($os->status()->tmp().'/innmind/ipc/server'),
             new ElapsedPeriod(100),
             new ElapsedPeriod(3000)

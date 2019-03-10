@@ -9,7 +9,11 @@ use Innmind\IPC\{
     Exception\Stop,
     Exception\RuntimeException,
 };
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\{
+    Sockets,
+    CurrentProcess\Signals,
+};
+use Innmind\Signals\Signal;
 use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
@@ -47,6 +51,7 @@ final class Unix implements Server
         Sockets $sockets,
         Protocol $protocol,
         TimeContinuumInterface $clock,
+        Signals $signals,
         Address $address,
         ElapsedPeriod $heartbeat,
         ElapsedPeriodInterface $timeout = null
@@ -58,6 +63,7 @@ final class Unix implements Server
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
         $this->connections = Map::of(Connection::class, ClientLifecycle::class);
+        $this->registerSignals($signals);
     }
 
     /**
@@ -200,5 +206,19 @@ final class Unix implements Server
             ->foreach(function(ClientLifecycle $client): void {
                 $client->heartbeat();
             });
+    }
+
+    private function registerSignals(Signals $signals): void
+    {
+        $shutdown = function(): void {
+            $this->startShutdown();
+        };
+
+        $signals->listen(Signal::hangup(), $shutdown);
+        $signals->listen(Signal::interrupt(), $shutdown);
+        $signals->listen(Signal::abort(), $shutdown);
+        $signals->listen(Signal::terminate(), $shutdown);
+        $signals->listen(Signal::terminalStop(), $shutdown);
+        $signals->listen(Signal::alarm(), $shutdown);
     }
 }
