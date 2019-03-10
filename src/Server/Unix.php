@@ -162,6 +162,10 @@ final class Unix implements Server
 
     private function startShutdown(): void
     {
+        if ($this->shuttingDown) {
+            return;
+        }
+
         $this->shuttingDown = true;
         $this
             ->connections
