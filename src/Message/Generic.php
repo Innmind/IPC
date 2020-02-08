@@ -18,6 +18,14 @@ final class Generic implements Message
         $this->content = $content;
     }
 
+    public static function of(string $mediaType, string $content): self
+    {
+        return new self(
+            MediaType::of($mediaType),
+            Str::of($content),
+        );
+    }
+
     public function mediaType(): MediaType
     {
         return $this->mediaType;

@@ -25,6 +25,17 @@ class GenericTest extends TestCase
         $this->assertSame($content, $message->content());
     }
 
+    public function testOf()
+    {
+        $message = Generic::of('text/plain', 'foo');
+
+        $this->assertInstanceOf(Generic::class, $message);
+        $this->assertTrue($message->equals(new Generic(
+            MediaType::of('text/plain'),
+            Str::of('foo'),
+        )));
+    }
+
     public function testEquals()
     {
         $message = new Generic(
