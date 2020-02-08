@@ -58,6 +58,22 @@ class UnixTest extends TestCase
         );
     }
 
+    public function testThrowIfThePathDoesntRepresentADirectory()
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage("Path must be a directory, got '/tmp/somewhere'");
+
+        new Unix(
+            $this->createMock(Sockets::class),
+            $this->createMock(Adapter::class),
+            $this->createMock(Clock::class),
+            $this->createMock(CurrentProcess::class),
+            $this->createMock(Protocol::class),
+            Path::of('/tmp/somewhere'),
+            new Timeout(1000)
+        );
+    }
+
     public function testProcesses()
     {
         $ipc = new Unix(
