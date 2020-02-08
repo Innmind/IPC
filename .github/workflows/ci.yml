@@ -32,6 +32,8 @@ jobs:
         run: composer install
       - name: PHPUnit
         run: vendor/bin/phpunit --coverage-clover=coverage.clover
+        env:
+          CI: 'github'
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
