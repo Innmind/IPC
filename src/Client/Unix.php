@@ -19,9 +19,9 @@ use Innmind\Stream\Exception\Exception as Stream;
 
 final class Unix implements Client
 {
-    private $connection;
-    private $protocol;
-    private $closed = false;
+    private Connection $connection;
+    private Protocol $protocol;
+    private bool $closed = false;
 
     public function __construct(Connection $connection, Protocol $protocol)
     {

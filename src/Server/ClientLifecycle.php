@@ -24,19 +24,20 @@ use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriod,
+    PointInTimeInterface,
 };
 
 final class ClientLifecycle
 {
-    private $connection;
-    private $protocol;
-    private $clock;
-    private $client;
-    private $heartbeat;
-    private $lastHeartbeat;
-    private $pendingStartOk = false;
-    private $pendingCloseOk = false;
-    private $garbage = false;
+    private Connection $connection;
+    private Protocol $protocol;
+    private TimeContinuumInterface $clock;
+    private Client $client;
+    private ElapsedPeriod $heartbeat;
+    private PointInTimeInterface $lastHeartbeat;
+    private bool $pendingStartOk = false;
+    private bool $pendingCloseOk = false;
+    private bool $garbage = false;
 
     public function __construct(
         Connection $connection,

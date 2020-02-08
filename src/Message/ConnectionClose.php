@@ -9,8 +9,8 @@ use Innmind\Immutable\Str;
 
 final class ConnectionClose implements Message
 {
-    private $mediaType;
-    private $content;
+    private MediaType $mediaType;
+    private Str $content;
 
     public function __construct()
     {

@@ -30,13 +30,13 @@ use Innmind\Immutable\{
 
 final class Unix implements IPC
 {
-    private $sockets;
-    private $filesystem;
-    private $clock;
-    private $process;
-    private $protocol;
-    private $path;
-    private $heartbeat;
+    private Sockets $sockets;
+    private Adapter $filesystem;
+    private TimeContinuumInterface $clock;
+    private CurrentProcess $process;
+    private Protocol $protocol;
+    private string $path;
+    private ElapsedPeriod $heartbeat;
 
     public function __construct(
         Sockets $sockets,

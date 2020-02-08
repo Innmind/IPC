@@ -29,6 +29,7 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    PointInTimeInterface,
 };
 use Innmind\Immutable\{
     Map,
@@ -37,16 +38,16 @@ use Innmind\Immutable\{
 
 final class Unix implements Server
 {
-    private $sockets;
-    private $protocol;
-    private $clock;
-    private $address;
-    private $heartbeat;
-    private $timeout;
-    private $connections;
-    private $lastReceivedData;
-    private $hadActivity = false;
-    private $shuttingDown = false;
+    private Sockets $sockets;
+    private Protocol $protocol;
+    private TimeContinuumInterface $clock;
+    private Address $address;
+    private ElapsedPeriod $heartbeat;
+    private ?ElapsedPeriodInterface $timeout;
+    private Map $connections;
+    private PointInTimeInterface $lastReceivedData;
+    private bool $hadActivity = false;
+    private bool $shuttingDown = false;
 
     public function __construct(
         Sockets $sockets,

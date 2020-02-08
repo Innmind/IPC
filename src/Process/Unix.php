@@ -33,17 +33,18 @@ use Innmind\TimeContinuum\{
     TimeContinuumInterface,
     ElapsedPeriodInterface,
     ElapsedPeriod,
+    PointInTimeInterface,
 };
 
 final class Unix implements Process
 {
-    private $socket;
-    private $select;
-    private $protocol;
-    private $clock;
-    private $name;
-    private $lastReceivedData;
-    private $closed = false;
+    private Client $socket;
+    private Select $select;
+    private Protocol $protocol;
+    private TimeContinuumInterface $clock;
+    private Name $name;
+    private PointInTimeInterface $lastReceivedData;
+    private bool $closed = false;
 
     public function __construct(
         Sockets $sockets,
