@@ -37,7 +37,7 @@ final class Unix implements Client
 
         try {
             $this->connection->write(
-                $this->protocol->encode($message)
+                $this->protocol->encode($message),
             );
         } catch (Stream | Socket $e) {
             throw new MessageNotSent('', 0, $e);

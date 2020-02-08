@@ -122,8 +122,8 @@ final class Unix implements Server
                             $connection,
                             $this->protocol,
                             $this->clock,
-                            $this->heartbeat
-                        )
+                            $this->heartbeat,
+                        ),
                     );
                 }
 
@@ -144,7 +144,7 @@ final class Unix implements Server
                         }
 
                         return $watch;
-                    }
+                    },
                 );
             } catch (\Throwable $e) {
                 if (!$e instanceof Stop) {

@@ -202,7 +202,7 @@ final class Unix implements Process
 
         try {
             $this->socket->write(
-                $this->protocol->encode($message)
+                $this->protocol->encode($message),
             );
         } catch (Stream | Socket $e) {
             throw new RuntimeException('', 0, $e);

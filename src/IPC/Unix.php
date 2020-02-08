@@ -89,7 +89,7 @@ final class Unix implements IPC
             $this->clock,
             $this->addressOf((string) $name),
             $name,
-            $this->heartbeat
+            $this->heartbeat,
         );
     }
 
@@ -127,7 +127,7 @@ final class Unix implements IPC
             $this->process->signals(),
             $this->addressOf((string) $self),
             $this->heartbeat,
-            $timeout
+            $timeout,
         );
     }
 

@@ -30,7 +30,7 @@ final class Binary implements Protocol
             $mediaType->toString(),
             \pack('N', $content->length()),
             $content->toString(),
-            \pack('C', $this->end())
+            \pack('C', $this->end()),
         );
     }
 

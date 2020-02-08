@@ -12,8 +12,8 @@ function bootstrap(
     Path $sockets = null,
     ElapsedPeriod $heartbeat = null
 ): IPC {
-    $sockets = $sockets ?? $os->status()->tmp()->resolve(Path::of('innmind/ipc/'));
-    $heartbeat = $heartbeat ?? new ElapsedPeriod(1000); // default to 1 second
+    $sockets ??= $os->status()->tmp()->resolve(Path::of('innmind/ipc/'));
+    $heartbeat ??= new ElapsedPeriod(1000); // default to 1 second
 
     return new IPC\Unix(
         $os->sockets(),
@@ -22,6 +22,6 @@ function bootstrap(
         $os->process(),
         new Protocol\Binary,
         $sockets,
-        $heartbeat
+        $heartbeat,
     );
 }
