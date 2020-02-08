@@ -11,7 +11,7 @@ interface Process
     public function send(Message ...$messages): void;
 
     /**
-     * @throws Timedout
+     * @throws Exception\Timedout
      */
     public function wait(ElapsedPeriod $timeout = null): Message;
     public function close(): void;

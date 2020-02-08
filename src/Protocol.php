@@ -11,7 +11,7 @@ interface Protocol
     public function encode(Message $message): Str;
 
     /**
-     * @throws NoMessage When the connection is closed
+     * @throws Exception\NoMessage When the connection is closed
      */
     public function decode(Readable $stream): Message;
 }

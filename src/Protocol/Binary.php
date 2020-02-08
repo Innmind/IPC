@@ -45,8 +45,10 @@ final class Binary implements Protocol
             throw new NoMessage;
         }
 
+        /** @var int $mediaTypeLength */
         [, $mediaTypeLength] = \unpack('n', $length->toString());
         $mediaType = $stream->read($mediaTypeLength);
+        /** @var int $contentLength */
         [, $contentLength] = \unpack('N', $stream->read(4)->toString());
         $content = $stream->read($contentLength);
         [, $end] = \unpack('C', $stream->read(1)->toString());

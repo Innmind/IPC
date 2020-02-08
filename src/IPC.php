@@ -14,7 +14,7 @@ interface IPC
     public function processes(): Set;
 
     /**
-     * @throws FailedToConnect
+     * @throws Exception\FailedToConnect
      */
     public function get(Process\Name $name): Process;
     public function exist(Process\Name $name): bool;

@@ -43,7 +43,9 @@ final class Unix implements Server
     private Address $address;
     private ElapsedPeriod $heartbeat;
     private ?ElapsedPeriod $timeout;
+    /** @var Map<Connection, ClientLifecycle> */
     private Map $connections;
+    /** @psalm-suppress PropertyNotSetInConstructor Property never accessed before initialization */
     private PointInTime $lastReceivedData;
     private bool $hadActivity = false;
     private bool $shuttingDown = false;
@@ -63,6 +65,7 @@ final class Unix implements Server
         $this->address = $address;
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
+        /** @var Map<Connection, ClientLifecycle> */
         $this->connections = Map::of(Connection::class, ClientLifecycle::class);
         $this->registerSignals($signals);
     }
@@ -124,6 +127,7 @@ final class Unix implements Server
                     );
                 }
 
+                /** @var Set<Connection> */
                 $sockets = $ready->toRead()->remove($server);
 
                 $this->heartbeat($sockets);
