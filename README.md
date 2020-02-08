@@ -1,10 +1,8 @@
 # Inter-Process Communication (IPC)
 
-| `develop` |
-|-----------|
-| [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/Innmind/IPC/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/IPC/?branch=develop) |
-| [![Code Coverage](https://scrutinizer-ci.com/g/Innmind/IPC/badges/coverage.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/IPC/?branch=develop) |
-| [![Build Status](https://scrutinizer-ci.com/g/Innmind/IPC/badges/build.png?b=develop)](https://scrutinizer-ci.com/g/Innmind/IPC/build-status/develop) |
+[![Build Status](https://github.com/Innmind/IPC/workflows/CI/badge.svg)](https://github.com/Innmind/IPC/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/Innmind/IPC/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/IPC)
+[![Type Coverage](https://shepherd.dev/github/Innmind/IPC/coverage.svg)](https://shepherd.dev/github/Innmind/IPC)
 
 Library to abstract the communication between processes by using message passing over unix sockets.
 
