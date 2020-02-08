@@ -19,9 +19,9 @@ use Innmind\Stream\Exception\Exception as Stream;
 
 final class Unix implements Client
 {
-    private $connection;
-    private $protocol;
-    private $closed = false;
+    private Connection $connection;
+    private Protocol $protocol;
+    private bool $closed = false;
 
     public function __construct(Connection $connection, Protocol $protocol)
     {
@@ -37,7 +37,7 @@ final class Unix implements Client
 
         try {
             $this->connection->write(
-                $this->protocol->encode($message)
+                $this->protocol->encode($message),
             );
         } catch (Stream | Socket $e) {
             throw new MessageNotSent('', 0, $e);

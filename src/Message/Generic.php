@@ -4,18 +4,26 @@ declare(strict_types = 1);
 namespace Innmind\IPC\Message;
 
 use Innmind\IPC\Message;
-use Innmind\Filesystem\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 final class Generic implements Message
 {
-    private $mediaType;
-    private $content;
+    private MediaType $mediaType;
+    private Str $content;
 
     public function __construct(MediaType $mediaType, Str $content)
     {
         $this->mediaType = $mediaType;
         $this->content = $content;
+    }
+
+    public static function of(string $mediaType, string $content): self
+    {
+        return new self(
+            MediaType::of($mediaType),
+            Str::of($content),
+        );
     }
 
     public function mediaType(): MediaType
@@ -30,7 +38,7 @@ final class Generic implements Message
 
     public function equals(Message $message): bool
     {
-        return (string) $this->mediaType === (string) $message->mediaType() &&
-            (string) $this->content === (string) $message->content();
+        return $this->mediaType->toString() === $message->mediaType()->toString() &&
+            $this->content->toString() === $message->content()->toString();
     }
 }

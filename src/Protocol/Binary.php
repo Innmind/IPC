@@ -11,7 +11,7 @@ use Innmind\IPC\{
     Exception\InvalidMessage,
 };
 use Innmind\Stream\Readable;
-use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 final class Binary implements Protocol
@@ -19,18 +19,18 @@ final class Binary implements Protocol
     public function encode(Message $message): Str
     {
         $content = $message->content()->toEncoding('ASCII');
-        $mediaType = Str::of((string) $message->mediaType())->toEncoding('ASCII');
+        $mediaType = Str::of($message->mediaType()->toString())->toEncoding('ASCII');
 
-        if ($content->length() > 4294967295) { // unsigned long integer
+        if ($content->length() > 4_294_967_295) { // unsigned long integer
             throw new MessageContentTooLong((string) $content->length());
         }
 
         return Str::of('%s%s%s%s%s', 'ASCII')->sprintf(
             \pack('n', $mediaType->length()),
-            $mediaType,
+            $mediaType->toString(),
             \pack('N', $content->length()),
-            $content,
-            \pack('C', $this->end())
+            $content->toString(),
+            \pack('C', $this->end()),
         );
     }
 
@@ -45,22 +45,24 @@ final class Binary implements Protocol
             throw new NoMessage;
         }
 
-        [, $mediaTypeLength] = \unpack('n', (string) $length);
+        /** @var int $mediaTypeLength */
+        [, $mediaTypeLength] = \unpack('n', $length->toString());
         $mediaType = $stream->read($mediaTypeLength);
-        [, $contentLength] = \unpack('N', (string) $stream->read(4));
+        /** @var int $contentLength */
+        [, $contentLength] = \unpack('N', $stream->read(4)->toString());
         $content = $stream->read($contentLength);
-        [, $end] = \unpack('C', (string) $stream->read(1));
+        [, $end] = \unpack('C', $stream->read(1)->toString());
 
         if (
             $content->toEncoding('ASCII')->length() !== $contentLength ||
             $end !== $this->end()
         ) {
-            throw new InvalidMessage((string) $content);
+            throw new InvalidMessage($content->toString());
         }
 
         return new Message\Generic(
-            MediaType::fromString((string) $mediaType),
-            $content
+            MediaType::of($mediaType->toString()),
+            $content,
         );
     }
 

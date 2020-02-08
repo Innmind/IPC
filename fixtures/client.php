@@ -8,7 +8,7 @@ use Innmind\IPC\{
     Exception\ConnectionClosed,
 };
 use Innmind\OperatingSystem\Factory;
-use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -18,7 +18,7 @@ $ipc = bootstrap($os);
 $ipc->wait(new Name('server'));
 $process = $ipc->get(new Name('server'));
 $process->send(new Message\Generic(
-    MediaType::fromString('text/plain'),
+    MediaType::of('text/plain'),
     Str::of('hello world')
 ));
 $message = $process->wait();
@@ -26,5 +26,5 @@ $message = $process->wait();
 try {
     $process->wait();
 } catch (ConnectionClosed $e) {
-    echo $message->content();
+    echo $message->content()->toString();
 }

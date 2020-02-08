@@ -22,10 +22,10 @@ use Innmind\Socket\{
     Exception\Exception as SocketException,
 };
 use Innmind\TimeContinuum\{
-    TimeContinuumInterface,
-    ElapsedPeriodInterface,
+    Clock,
     ElapsedPeriod,
-    PointInTimeInterface,
+    Earth\ElapsedPeriod as Timeout,
+    PointInTime,
 };
 use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\Immutable\Str;
@@ -37,8 +37,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -62,8 +62,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -81,14 +81,14 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(2))
             ->method('now')
             ->will($this->onConsecutiveCalls(
-                $start = $this->createMock(PointInTimeInterface::class),
-                $now = $this->createMock(PointInTimeInterface::class)
+                $start = $this->createMock(PointInTime::class),
+                $now = $this->createMock(PointInTime::class)
             ));
         $now
             ->expects($this->once())
             ->method('elapsedSince')
             ->with($start)
-            ->willReturn($period = $this->createMock(ElapsedPeriodInterface::class));
+            ->willReturn($period = $this->createMock(ElapsedPeriod::class));
         $period
             ->expects($this->once())
             ->method('longerThan')
@@ -105,8 +105,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -149,8 +149,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -168,14 +168,14 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(2))
             ->method('now')
             ->will($this->onConsecutiveCalls(
-                $start = $this->createMock(PointInTimeInterface::class),
-                $now = $this->createMock(PointInTimeInterface::class)
+                $start = $this->createMock(PointInTime::class),
+                $now = $this->createMock(PointInTime::class)
             ));
         $now
             ->expects($this->once())
             ->method('elapsedSince')
             ->with($start)
-            ->willReturn($period = $this->createMock(ElapsedPeriodInterface::class));
+            ->willReturn($period = $this->createMock(ElapsedPeriod::class));
         $period
             ->expects($this->once())
             ->method('longerThan')
@@ -206,8 +206,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -225,14 +225,14 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(2))
             ->method('now')
             ->will($this->onConsecutiveCalls(
-                $start = $this->createMock(PointInTimeInterface::class),
-                $now = $this->createMock(PointInTimeInterface::class)
+                $start = $this->createMock(PointInTime::class),
+                $now = $this->createMock(PointInTime::class)
             ));
         $now
             ->expects($this->once())
             ->method('elapsedSince')
             ->with($start)
-            ->willReturn($period = $this->createMock(ElapsedPeriodInterface::class));
+            ->willReturn($period = $this->createMock(ElapsedPeriod::class));
         $period
             ->expects($this->once())
             ->method('longerThan')
@@ -262,8 +262,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -297,8 +297,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -332,8 +332,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -367,8 +367,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -425,8 +425,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -505,8 +505,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -572,8 +572,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -646,8 +646,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -721,8 +721,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -799,8 +799,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -864,8 +864,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -917,8 +917,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -971,8 +971,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')
@@ -1025,8 +1025,8 @@ class ClientLifecycleTest extends TestCase
     {
         $connection = $this->createMock(Connection::class);
         $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(TimeContinuumInterface::class);
-        $heartbeat = new ElapsedPeriod(1000);
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->at(0))
             ->method('closed')

@@ -8,7 +8,7 @@ use Innmind\IPC\{
     Message\Generic,
     Message,
 };
-use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -19,18 +19,21 @@ class ConnectionCloseTest extends TestCase
         $message = new ConnectionClose;
 
         $this->assertInstanceOf(Message::class, $message);
-        $this->assertSame('text/plain', (string) $message->mediaType());
-        $this->assertSame('innmind/ipc:connection.close', (string) $message->content());
+        $this->assertSame('text/plain', $message->mediaType()->toString());
+        $this->assertSame('innmind/ipc:connection.close', $message->content()->toString());
     }
 
     public function testEquals()
     {
         $message = new ConnectionClose;
         $same = new Generic(
-            MediaType::fromString('text/plain'),
+            MediaType::of('text/plain'),
             Str::of('innmind/ipc:connection.close')
         );
-        $different = $this->createMock(Message::class);
+        $different = new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('foo'),
+        );
 
         $this->assertTrue($message->equals($same));
         $this->assertFalse($message->equals($different));
