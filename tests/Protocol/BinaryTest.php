@@ -10,10 +10,8 @@ use Innmind\IPC\{
     Exception\NoMessage,
     Exception\InvalidMessage,
 };
-use Innmind\Filesystem\{
-    MediaType\MediaType,
-    Stream\StringStream,
-};
+use Innmind\MediaType\MediaType;
+use Innmind\Stream\Readable\Stream;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -28,7 +26,7 @@ class BinaryTest extends TestCase
     {
         $protocol = new Binary;
         $message = new Message\Generic(
-            MediaType::fromString('application/json'),
+            MediaType::of('application/json'),
             Str::of('{"foo":"bar🙏"}')
         );
 
@@ -37,22 +35,22 @@ class BinaryTest extends TestCase
         $this->assertInstanceOf(Str::class, $binary);
         $this->assertSame(
             \pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE),
-            (string) $binary
+            $binary->toString(),
         );
-        $this->assertSame('ASCII', (string) $binary->encoding());
+        $this->assertSame('ASCII', $binary->encoding()->toString());
     }
 
     public function testDecode()
     {
         $protocol = new Binary;
-        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE).'baz');
+        $stream = Stream::ofContent(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}'.\pack('C', 0xCE).'baz');
 
         $message = $protocol->decode($stream);
 
         $this->assertInstanceOf(Message::class, $message);
-        $this->assertSame('application/json', (string) $message->mediaType());
-        $this->assertSame('{"foo":"bar🙏"}', (string) $message->content());
-        $this->assertSame('baz', (string) $stream->read(3)); // to verify the protocol didn't read that part
+        $this->assertSame('application/json', $message->mediaType()->toString());
+        $this->assertSame('{"foo":"bar🙏"}', $message->content()->toString());
+        $this->assertSame('baz', $stream->read(3)->toString()); // to verify the protocol didn't read that part
     }
 
     public function testThrowWhenEmptyStream()
@@ -61,13 +59,13 @@ class BinaryTest extends TestCase
 
         $this->expectException(NoMessage::class);
 
-        $protocol->decode(new StringStream(''));
+        $protocol->decode(Stream::ofContent(''));
     }
 
     public function testThrowWhenMessageContentNotOfExceptedSize()
     {
         $protocol = new Binary;
-        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏'.\pack('C', 0xCE).'baz');
+        $stream = Stream::ofContent(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏'.\pack('C', 0xCE).'baz');
 
         $this->expectException(InvalidMessage::class);
         $this->expectExceptionMessage('{"foo":"bar🙏'.\pack('C', 0xCE).'b');
@@ -78,7 +76,7 @@ class BinaryTest extends TestCase
     public function testThrowWhenMessageNotEndedWithSpecialCharacter()
     {
         $protocol = new Binary;
-        $stream = new StringStream(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}baz');
+        $stream = Stream::ofContent(\pack('n', 16).'application/json'.\pack('N', 17).'{"foo":"bar🙏"}baz');
 
         $this->expectException(InvalidMessage::class);
         $this->expectExceptionMessage('{"foo":"bar🙏"}');

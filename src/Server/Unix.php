@@ -21,42 +21,41 @@ use Innmind\Socket\{
     Exception\Exception as Socket,
 };
 use Innmind\Stream\{
-    Select,
+    Watch,
     Exception\Exception as Stream,
     Exception\SelectFailed,
 };
 use Innmind\TimeContinuum\{
-    TimeContinuumInterface,
-    ElapsedPeriodInterface,
+    Clock,
     ElapsedPeriod,
-    PointInTimeInterface,
+    PointInTime,
 };
 use Innmind\Immutable\{
     Map,
-    SetInterface,
+    Set,
 };
 
 final class Unix implements Server
 {
     private Sockets $sockets;
     private Protocol $protocol;
-    private TimeContinuumInterface $clock;
+    private Clock $clock;
     private Address $address;
     private ElapsedPeriod $heartbeat;
-    private ?ElapsedPeriodInterface $timeout;
+    private ?ElapsedPeriod $timeout;
     private Map $connections;
-    private PointInTimeInterface $lastReceivedData;
+    private PointInTime $lastReceivedData;
     private bool $hadActivity = false;
     private bool $shuttingDown = false;
 
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
-        TimeContinuumInterface $clock,
+        Clock $clock,
         Signals $signals,
         Address $address,
         ElapsedPeriod $heartbeat,
-        ElapsedPeriodInterface $timeout = null
+        ElapsedPeriod $timeout = null
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
@@ -91,11 +90,11 @@ final class Unix implements Server
     private function loop(callable $listen): void
     {
         $server = $this->sockets->open($this->address);
-        $select = (new Select($this->heartbeat))->forRead($server);
+        $watch = $this->sockets->watch($this->heartbeat)->forRead($server);
 
         do {
             try {
-                $sockets = $select();
+                $ready = $watch();
             } catch (SelectFailed $e) {
                 if ($this->shuttingDown) {
                     $this->emergencyShutdown($server);
@@ -107,14 +106,14 @@ final class Unix implements Server
             }
 
             try {
-                if (!$sockets->get('read')->empty()) {
+                if (!$ready->toRead()->empty()) {
                     $this->lastReceivedData = $this->clock->now();
                 }
 
-                if ($sockets->get('read')->contains($server) && !$this->shuttingDown) {
+                if ($ready->toRead()->contains($server) && !$this->shuttingDown) {
                     $connection = $server->accept();
-                    $select = $select->forRead($connection);
-                    $this->connections = $this->connections->put(
+                    $watch = $watch->forRead($connection);
+                    $this->connections = ($this->connections)(
                         $connection,
                         new ClientLifecycle(
                             $connection,
@@ -125,22 +124,22 @@ final class Unix implements Server
                     );
                 }
 
-                $sockets = $sockets->get('read')->remove($server);
+                $sockets = $ready->toRead()->remove($server);
 
                 $this->heartbeat($sockets);
 
-                $select = $sockets->reduce(
-                    $select,
-                    function(Select $select, Connection $connection) use ($listen): Select {
+                $watch = $sockets->reduce(
+                    $watch,
+                    function(Watch $watch, Connection $connection) use ($listen): Watch {
                         $lifecycle = $this->connections->get($connection);
                         $lifecycle->notify($listen);
 
                         if ($lifecycle->toBeGarbageCollected()) {
                             $this->connections = $this->connections->remove($connection);
-                            $select = $select->unwatch($connection);
+                            $watch = $watch->unwatch($connection);
                         }
 
-                        return $select;
+                        return $watch;
                     }
                 );
             } catch (\Throwable $e) {
@@ -160,7 +159,7 @@ final class Unix implements Server
 
     private function monitorTimeout(): void
     {
-        if (!$this->timeout instanceof ElapsedPeriodInterface) {
+        if (!$this->timeout instanceof ElapsedPeriod) {
             return;
         }
 
@@ -209,9 +208,9 @@ final class Unix implements Server
     }
 
     /**
-     * @param SetInterface<Connection> $activeSockets
+     * @param Set<Connection> $activeSockets
      */
-    private function heartbeat(SetInterface $activeSockets): void
+    private function heartbeat(Set $activeSockets): void
     {
         $this
             ->connections

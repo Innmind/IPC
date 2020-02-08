@@ -17,6 +17,7 @@ use Innmind\Socket\{
     Exception\Exception as SocketException,
 };
 use Innmind\Stream\Exception\Exception as StreamException;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -136,9 +137,17 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
-        $message = $this->createMock(Message::class);
+        $message = new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('watev'),
+        );
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->with($message)
+            ->willReturn(Str::of('watev'));
         $connection
             ->expects($this->once())
             ->method('write')
@@ -153,9 +162,17 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
-        $message = $this->createMock(Message::class);
+        $message = new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('watev'),
+        );
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->with($message)
+            ->willReturn(Str::of('watev'));
         $connection
             ->expects($this->once())
             ->method('write')
@@ -170,9 +187,12 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
-        $message = $this->createMock(Message::class);
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->willReturn(Str::of('watev'));
         $connection
             ->expects($this->once())
             ->method('write')
@@ -191,9 +211,12 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
-        $message = $this->createMock(Message::class);
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->willReturn(Str::of('watev'));
         $connection
             ->expects($this->once())
             ->method('write')

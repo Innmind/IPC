@@ -7,7 +7,7 @@ use Innmind\IPC\{
     Process\Name,
 };
 use Innmind\OperatingSystem\Factory;
-use Innmind\Filesystem\MediaType\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -17,7 +17,7 @@ $ipc = bootstrap($os);
 $ipc->wait(new Name('server'));
 $process = $ipc->get(new Name('server'));
 $process->send(new Message\Generic(
-    MediaType::fromString('text/plain'),
+    MediaType::of('text/plain'),
     Str::of('hello world')
 ));
 $process->close();

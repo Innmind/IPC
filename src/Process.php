@@ -3,7 +3,7 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\TimeContinuum\ElapsedPeriodInterface;
+use Innmind\TimeContinuum\ElapsedPeriod;
 
 interface Process
 {
@@ -13,7 +13,7 @@ interface Process
     /**
      * @throws Timedout
      */
-    public function wait(ElapsedPeriodInterface $timeout = null): Message;
+    public function wait(ElapsedPeriod $timeout = null): Message;
     public function close(): void;
     public function closed(): bool;
 }

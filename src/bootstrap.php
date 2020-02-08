@@ -4,18 +4,15 @@ declare(strict_types = 1);
 namespace Innmind\IPC;
 
 use Innmind\OperatingSystem\OperatingSystem;
-use Innmind\Url\{
-    PathInterface,
-    Path,
-};
-use Innmind\TimeContinuum\ElapsedPeriod;
+use Innmind\Url\Path;
+use Innmind\TimeContinuum\Earth\ElapsedPeriod;
 
 function bootstrap(
     OperatingSystem $os,
-    PathInterface $sockets = null,
+    Path $sockets = null,
     ElapsedPeriod $heartbeat = null
 ): IPC {
-    $sockets = $sockets ?? new Path("{$os->status()->tmp()}/innmind/ipc");
+    $sockets = $sockets ?? $os->status()->tmp()->resolve(Path::of('innmind/ipc/'));
     $heartbeat = $heartbeat ?? new ElapsedPeriod(1000); // default to 1 second
 
     return new IPC\Unix(

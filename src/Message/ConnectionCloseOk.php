@@ -4,7 +4,7 @@ declare(strict_types = 1);
 namespace Innmind\IPC\Message;
 
 use Innmind\IPC\Message;
-use Innmind\Filesystem\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 final class ConnectionCloseOk implements Message
@@ -14,7 +14,7 @@ final class ConnectionCloseOk implements Message
 
     public function __construct()
     {
-        $this->mediaType = new MediaType\MediaType('text', 'plain');
+        $this->mediaType = new MediaType('text', 'plain');
         $this->content = Str::of('innmind/ipc:connection.close-ok');
     }
 
@@ -30,7 +30,7 @@ final class ConnectionCloseOk implements Message
 
     public function equals(Message $message): bool
     {
-        return (string) $this->mediaType === (string) $message->mediaType() &&
-            (string) $this->content === (string) $message->content();
+        return $this->mediaType->toString() === $message->mediaType()->toString() &&
+            $this->content->toString() === $message->content()->toString();
     }
 }

@@ -7,7 +7,7 @@ use Innmind\IPC\{
     Message\Generic,
     Message,
 };
-use Innmind\Filesystem\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +16,7 @@ class GenericTest extends TestCase
     public function testInterface()
     {
         $message = new Generic(
-            $mediaType = $this->createMock(MediaType::class),
+            $mediaType = MediaType::null(),
             $content = Str::of('foo')
         );
 
@@ -28,14 +28,17 @@ class GenericTest extends TestCase
     public function testEquals()
     {
         $message = new Generic(
-            MediaType\MediaType::fromString('text/plain'),
+            MediaType::of('text/plain'),
             Str::of('watev')
         );
         $same = new Generic(
-            MediaType\MediaType::fromString('text/plain'),
+            MediaType::of('text/plain'),
             Str::of('watev')
         );
-        $different = $this->createMock(Message::class);
+        $different = new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('foo'),
+        );
 
         $this->assertTrue($message->equals($same));
         $this->assertFalse($message->equals($different));

@@ -26,33 +26,32 @@ use Innmind\Socket\{
     Exception\Exception as Socket,
 };
 use Innmind\Stream\{
-    Select,
+    Watch,
     Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
-    TimeContinuumInterface,
-    ElapsedPeriodInterface,
+    Clock,
     ElapsedPeriod,
-    PointInTimeInterface,
+    PointInTime,
 };
 
 final class Unix implements Process
 {
     private Client $socket;
-    private Select $select;
+    private Watch $watch;
     private Protocol $protocol;
-    private TimeContinuumInterface $clock;
+    private Clock $clock;
     private Name $name;
-    private PointInTimeInterface $lastReceivedData;
+    private PointInTime $lastReceivedData;
     private bool $closed = false;
 
     public function __construct(
         Sockets $sockets,
         Protocol $protocol,
-        TimeContinuumInterface $clock,
+        Clock $clock,
         Address $address,
         Name $name,
-        ElapsedPeriod $selectTimeout
+        ElapsedPeriod $watchTimeout
     ) {
         try {
             $this->socket = $sockets->connectTo($address);
@@ -60,7 +59,7 @@ final class Unix implements Process
             throw new FailedToConnect((string) $name, 0, $e);
         }
 
-        $this->select = (new Select($selectTimeout))->forRead($this->socket);
+        $this->watch = $sockets->watch($watchTimeout)->forRead($this->socket);
         $this->protocol = $protocol;
         $this->clock = $clock;
         $this->name = $name;
@@ -93,7 +92,7 @@ final class Unix implements Process
     /**
      * {@inheritdoc}
      */
-    public function wait(ElapsedPeriodInterface $timeout = null): Message
+    public function wait(ElapsedPeriod $timeout = null): Message
     {
         do {
             if ($this->closed()) {
@@ -103,12 +102,12 @@ final class Unix implements Process
             }
 
             try {
-                $sockets = ($this->select)();
+                $ready = ($this->watch)();
             } catch (Stream | Socket $e) {
                 throw new RuntimeException('', 0, $e);
             }
 
-            $receivedData = $sockets->get('read')->contains($this->socket);
+            $receivedData = $ready->toRead()->contains($this->socket);
 
             if (!$receivedData) {
                 $this->sendMessage(new Heartbeat);
@@ -182,7 +181,7 @@ final class Unix implements Process
         $this->socket->close();
     }
 
-    private function timeout(ElapsedPeriodInterface $timeout = null): void
+    private function timeout(ElapsedPeriod $timeout = null): void
     {
         if ($timeout === null) {
             return;

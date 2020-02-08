@@ -22,19 +22,19 @@ use Innmind\Socket\{
 };
 use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\TimeContinuum\{
-    TimeContinuumInterface,
+    Clock,
     ElapsedPeriod,
-    PointInTimeInterface,
+    PointInTime,
 };
 
 final class ClientLifecycle
 {
     private Connection $connection;
     private Protocol $protocol;
-    private TimeContinuumInterface $clock;
+    private Clock $clock;
     private Client $client;
     private ElapsedPeriod $heartbeat;
-    private PointInTimeInterface $lastHeartbeat;
+    private PointInTime $lastHeartbeat;
     private bool $pendingStartOk = false;
     private bool $pendingCloseOk = false;
     private bool $garbage = false;
@@ -42,7 +42,7 @@ final class ClientLifecycle
     public function __construct(
         Connection $connection,
         Protocol $protocol,
-        TimeContinuumInterface $clock,
+        Clock $clock,
         ElapsedPeriod $heartbeat
     ) {
         $this->connection = $connection;

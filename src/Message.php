@@ -3,7 +3,7 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\Filesystem\MediaType;
+use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
 interface Message

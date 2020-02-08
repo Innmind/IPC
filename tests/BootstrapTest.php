@@ -6,6 +6,7 @@ namespace Tests\Innmind\IPC;
 use function Innmind\IPC\bootstrap;
 use Innmind\IPC\IPC;
 use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\Url\Path;
 use PHPUnit\Framework\TestCase;
 
 class BootstrapTest extends TestCase
@@ -14,7 +15,10 @@ class BootstrapTest extends TestCase
     {
         $this->assertInstanceOf(
             IPC::class,
-            bootstrap($this->createMock(OperatingSystem::class))
+            bootstrap(
+                $this->createMock(OperatingSystem::class),
+                Path::of('/tmp/innmind/ipc/'),
+            ),
         );
     }
 }
