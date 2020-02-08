@@ -80,14 +80,14 @@ final class Unix implements IPC
     public function get(Process\Name $name): Process
     {
         if (!$this->exist($name)) {
-            throw new LogicException((string) $name);
+            throw new LogicException($name->toString());
         }
 
         return new Process\Unix(
             $this->sockets,
             $this->protocol,
             $this->clock,
-            $this->addressOf((string) $name),
+            $this->addressOf($name->toString()),
             $name,
             $this->heartbeat,
         );
@@ -95,7 +95,7 @@ final class Unix implements IPC
 
     public function exist(Process\Name $name): bool
     {
-        return $this->filesystem->contains(new FileName("$name.sock"));
+        return $this->filesystem->contains(new FileName("{$name->toString()}.sock"));
     }
 
     public function wait(Process\Name $name, ElapsedPeriod $timeout = null): void
@@ -125,7 +125,7 @@ final class Unix implements IPC
             $this->protocol,
             $this->clock,
             $this->process->signals(),
-            $this->addressOf((string) $self),
+            $this->addressOf($self->toString()),
             $this->heartbeat,
             $timeout,
         );

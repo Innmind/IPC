@@ -110,10 +110,10 @@ class UnixTest extends TestCase
         $processes = unwrap($processes);
 
         $foo = \current($processes);
-        $this->assertSame('foo', (string) $foo);
+        $this->assertSame('foo', $foo->toString());
         \next($processes);
         $bar = \current($processes);
-        $this->assertSame('bar', (string) $bar);
+        $this->assertSame('bar', $bar->toString());
     }
 
     public function testThrowWhenGettingUnknownProcess()
@@ -180,7 +180,7 @@ class UnixTest extends TestCase
         $foo = $ipc->get(new Name('foo'));
 
         $this->assertInstanceOf(Process\Unix::class, $foo);
-        $this->assertSame('foo', (string) $foo->name());
+        $this->assertSame('foo', $foo->name()->toString());
     }
 
     public function testExist()

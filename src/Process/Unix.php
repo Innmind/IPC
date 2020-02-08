@@ -56,7 +56,7 @@ final class Unix implements Process
         try {
             $this->socket = $sockets->connectTo($address);
         } catch (Stream | Socket $e) {
-            throw new FailedToConnect((string) $name, 0, $e);
+            throw new FailedToConnect($name->toString(), 0, $e);
         }
 
         $this->watch = $sockets->watch($watchTimeout)->forRead($this->socket);
@@ -149,7 +149,7 @@ final class Unix implements Process
         if (!$message->equals(new ConnectionCloseOk)) {
             $this->cut();
 
-            throw new InvalidConnectionClose((string) $this->name());
+            throw new InvalidConnectionClose($this->name()->toString());
         }
 
         $this->cut();
@@ -165,11 +165,11 @@ final class Unix implements Process
         try {
             $message = $this->wait();
         } catch (RuntimeException $e) {
-            throw new FailedToConnect((string) $this->name(), 0, $e);
+            throw new FailedToConnect($this->name()->toString(), 0, $e);
         }
 
         if (!$message->equals(new ConnectionStart)) {
-            throw new FailedToConnect((string) $this->name());
+            throw new FailedToConnect($this->name()->toString());
         }
 
         $this->sendMessage(new ConnectionStartOk);
