@@ -34,16 +34,14 @@ use Innmind\IPC\{
     Message\Generic as Message,
 };
 use Innmind\OperatingSystem\Factory;
-use Innmind\Filesystem\MediaType\MediaType;
-use Innmind\Immutable\Str;
 
 $ipc = bootstrap(Factory::build());
 $server = new Name('a');
 $ipc->wait($server);
 $process = $ipc->get($server);
-$process->send(new Message(
-    MediaType::fromString('text/plain'),
-    Str::of('hello world')
+$process->send(Message::of(
+    'text/plain',
+    'hello world',
 ));
 $message = $process->wait();
 echo 'server responded '.$message->content();
