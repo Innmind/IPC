@@ -40,6 +40,7 @@ final class Unix implements Server
     private Sockets $sockets;
     private Protocol $protocol;
     private Clock $clock;
+    private Signals $signals;
     private Address $address;
     private ElapsedPeriod $heartbeat;
     private ?ElapsedPeriod $timeout;
@@ -49,6 +50,7 @@ final class Unix implements Server
     private PointInTime $lastReceivedData;
     private bool $hadActivity = false;
     private bool $shuttingDown = false;
+    private bool $signalsRegistered = false;
 
     public function __construct(
         Sockets $sockets,
@@ -62,12 +64,12 @@ final class Unix implements Server
         $this->sockets = $sockets;
         $this->protocol = $protocol;
         $this->clock = $clock;
+        $this->signals = $signals;
         $this->address = $address;
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
         /** @var Map<Connection, ClientLifecycle> */
         $this->connections = Map::of(Connection::class, ClientLifecycle::class);
-        $this->registerSignals($signals);
     }
 
     /**
@@ -80,6 +82,7 @@ final class Unix implements Server
         $this->hadActivity = false;
         $this->shuttingDown = false;
         $this->lastReceivedData = $this->clock->now();
+        $this->registerSignals();
 
         try {
             $this->loop($listen);
@@ -227,17 +230,22 @@ final class Unix implements Server
             });
     }
 
-    private function registerSignals(Signals $signals): void
+    private function registerSignals(): void
     {
+        if ($this->signalsRegistered) {
+            return;
+        }
+
         $shutdown = function(): void {
             $this->startShutdown();
         };
 
-        $signals->listen(Signal::hangup(), $shutdown);
-        $signals->listen(Signal::interrupt(), $shutdown);
-        $signals->listen(Signal::abort(), $shutdown);
-        $signals->listen(Signal::terminate(), $shutdown);
-        $signals->listen(Signal::terminalStop(), $shutdown);
-        $signals->listen(Signal::alarm(), $shutdown);
+        $this->signals->listen(Signal::hangup(), $shutdown);
+        $this->signals->listen(Signal::interrupt(), $shutdown);
+        $this->signals->listen(Signal::abort(), $shutdown);
+        $this->signals->listen(Signal::terminate(), $shutdown);
+        $this->signals->listen(Signal::terminalStop(), $shutdown);
+        $this->signals->listen(Signal::alarm(), $shutdown);
+        $this->signalsRegistered = true;
     }
 }
