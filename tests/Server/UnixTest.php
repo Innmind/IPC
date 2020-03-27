@@ -30,6 +30,7 @@ use Innmind\Socket\{
     Exception\Exception as SocketException,
 };
 use Innmind\Stream\{
+    Watch,
     Watch\Select,
     Exception\Exception as StreamException
 };
@@ -156,9 +157,37 @@ class UnixTest extends TestCase
         $this->assertNull($receive(function(){}));
     }
 
-    public function testInstallSignalsHandler()
+    public function testInstallSignalsHandlerOnlyWhenStartingTheServer()
     {
         $signals = $this->createMock(Signals::class);
+
+        $server = new Unix(
+            $sockets = $this->createMock(Sockets::class),
+            $this->createMock(Protocol::class),
+            $this->createMock(Clock::class),
+            $signals,
+            $address = Address::of('/tmp/foo.sock'),
+            $heartbeat = new Timeout(10),
+            $this->createMock(ElapsedPeriod::class)
+        );
+        $sockets
+            ->expects($this->any())
+            ->method('open')
+            ->willReturn(ServerSocket\Unix::recoverable($address));
+        $sockets
+            ->expects($this->any())
+            ->method('watch')
+            ->with($heartbeat)
+            ->willReturn($watch = $this->createMock(Watch::class));
+        $watch
+            ->expects($this->any())
+            ->method('forRead')
+            ->will($this->returnSelf());
+        $watch
+            ->expects($this->any())
+            ->method('__invoke')
+            ->will($this->throwException($expected = new \Exception));
+
         $signals
             ->expects($this->at(0))
             ->method('listen')
@@ -225,16 +254,26 @@ class UnixTest extends TestCase
                     return true;
                 })
             );
+        $signals
+            ->expects($this->exactly(6))
+            ->method('listen');
 
-        new Unix(
-            $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
-            $this->createMock(Clock::class),
-            $signals,
-            Address::of('/tmp/foo.sock'),
-            new Timeout(10),
-            $this->createMock(ElapsedPeriod::class)
-        );
+        try {
+            $server(function() {
+                throw new Stop;
+            });
+        } catch (\Exception $e) {
+            $this->assertSame($expected, $e);
+        }
+
+        try {
+            // check signals are not registered twice
+            $server(function() {
+                throw new Stop;
+            });
+        } catch (\Exception $e) {
+            $this->assertSame($expected, $e);
+        }
     }
 
     public function testShutdownProcess()
