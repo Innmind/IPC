@@ -48,6 +48,7 @@ final class Unix implements Server
     private Map $connections;
     /** @psalm-suppress PropertyNotSetInConstructor Property never accessed before initialization */
     private PointInTime $lastReceivedData;
+    private \Closure $shutdown;
     private bool $hadActivity = false;
     private bool $shuttingDown = false;
     private bool $signalsRegistered = false;
@@ -70,6 +71,9 @@ final class Unix implements Server
         $this->timeout = $timeout;
         /** @var Map<Connection, ClientLifecycle> */
         $this->connections = Map::of(Connection::class, ClientLifecycle::class);
+        $this->shutdown = function(): void {
+            $this->startShutdown();
+        };
     }
 
     /**
@@ -87,8 +91,10 @@ final class Unix implements Server
         try {
             $this->loop($listen);
         } catch (Stop $e) {
+            $this->unregisterSignals();
             // stop receiving messages
         } catch (Stream | Socket $e) {
+            $this->unregisterSignals();
             throw new RuntimeException('', 0, $e);
         }
     }
@@ -236,16 +242,18 @@ final class Unix implements Server
             return;
         }
 
-        $shutdown = function(): void {
-            $this->startShutdown();
-        };
-
-        $this->signals->listen(Signal::hangup(), $shutdown);
-        $this->signals->listen(Signal::interrupt(), $shutdown);
-        $this->signals->listen(Signal::abort(), $shutdown);
-        $this->signals->listen(Signal::terminate(), $shutdown);
-        $this->signals->listen(Signal::terminalStop(), $shutdown);
-        $this->signals->listen(Signal::alarm(), $shutdown);
+        $this->signals->listen(Signal::hangup(), $this->shutdown);
+        $this->signals->listen(Signal::interrupt(), $this->shutdown);
+        $this->signals->listen(Signal::abort(), $this->shutdown);
+        $this->signals->listen(Signal::terminate(), $this->shutdown);
+        $this->signals->listen(Signal::terminalStop(), $this->shutdown);
+        $this->signals->listen(Signal::alarm(), $this->shutdown);
         $this->signalsRegistered = true;
+    }
+
+    private function unregisterSignals(): void
+    {
+        $this->signals->remove($this->shutdown);
+        $this->signalsRegistered = false;
     }
 }
