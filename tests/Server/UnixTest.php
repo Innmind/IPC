@@ -122,17 +122,13 @@ class UnixTest extends TestCase
             ->with($heartbeat)
             ->willReturn(new Select($heartbeat));
         $clock
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('now')
-            ->willReturn($start = $this->createMock(PointInTime::class));
-        $clock
-            ->expects($this->at(1))
-            ->method('now')
-            ->willReturn($firstIteration = $this->createMock(PointInTime::class));
-        $clock
-            ->expects($this->at(2))
-            ->method('now')
-            ->willReturn($secondIteration = $this->createMock(PointInTime::class));
+            ->will($this->onConsecutiveCalls(
+                $start = $this->createMock(PointInTime::class),
+                $firstIteration = $this->createMock(PointInTime::class),
+                $secondIteration = $this->createMock(PointInTime::class),
+            ));
         $firstIteration
             ->expects($this->once())
             ->method('elapsedSince')
@@ -188,75 +184,22 @@ class UnixTest extends TestCase
             ->method('__invoke')
             ->will($this->throwException($expected = new \Exception));
 
-        $signals
-            ->expects($this->at(0))
-            ->method('listen')
-            ->with(
-                Signal::hangup(),
-                $this->callback(static function($listen): bool {
-                    $listen();
+        $callback = $this->callback(static function($listen): bool {
+            $listen();
 
-                    return true;
-                })
-            );
-        $signals
-            ->expects($this->at(1))
-            ->method('listen')
-            ->with(
-                Signal::interrupt(),
-                $this->callback(static function($listen): bool {
-                    $listen();
-
-                    return true;
-                })
-            );
-        $signals
-            ->expects($this->at(2))
-            ->method('listen')
-            ->with(
-                Signal::abort(),
-                $this->callback(static function($listen): bool {
-                    $listen();
-
-                    return true;
-                })
-            );
-        $signals
-            ->expects($this->at(3))
-            ->method('listen')
-            ->with(
-                Signal::terminate(),
-                $this->callback(static function($listen): bool {
-                    $listen();
-
-                    return true;
-                })
-            );
-        $signals
-            ->expects($this->at(4))
-            ->method('listen')
-            ->with(
-                Signal::terminalStop(),
-                $this->callback(static function($listen): bool {
-                    $listen();
-
-                    return true;
-                })
-            );
-        $signals
-            ->expects($this->at(5))
-            ->method('listen')
-            ->with(
-                Signal::alarm(),
-                $this->callback(static function($listen): bool {
-                    $listen();
-
-                    return true;
-                })
-            );
+            return true;
+        });
         $signals
             ->expects($this->exactly(6))
-            ->method('listen');
+            ->method('listen')
+            ->withConsecutive(
+                [Signal::hangup(), $callback],
+                [Signal::interrupt(), $callback],
+                [Signal::abort(), $callback],
+                [Signal::terminate(), $callback],
+                [Signal::terminalStop(), $callback],
+                [Signal::alarm(), $callback],
+            );
 
         try {
             $server(function() {

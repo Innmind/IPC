@@ -70,12 +70,12 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
@@ -163,26 +163,24 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->atLeast(1))
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with($message)
-            ->willReturn(Str::of('message-to-send'));
+            ->withConsecutive([new ConnectionStartOk], [$message])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                Str::of('message-to-send'),
+            ));
         $socket
             ->method('write')
-            ->with($this->logicalOr(
-                $this->equalTo(Str::of('start-ok')),
-                $this->equalTo(Str::of('message-to-send'))
-            ));
+            ->withConsecutive(
+                [Str::of('start-ok')],
+                [Str::of('message-to-send')],
+            );
 
         $process = new Unix(
             $sockets,
@@ -220,20 +218,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with($message)
-            ->will($this->throwException($this->createMock(StreamException::class)));
+            ->withConsecutive([new ConnectionStartOk], [$message])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                $this->throwException($this->createMock(StreamException::class)),
+            ));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -276,20 +272,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with($message)
-            ->will($this->throwException($this->createMock(SocketException::class)));
+            ->withConsecutive([new ConnectionStartOk], [$message])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                $this->throwException($this->createMock(SocketException::class)),
+            ));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -330,12 +324,12 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
@@ -386,12 +380,12 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
@@ -446,20 +440,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionStart);
-        $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
         $protocol
-            ->expects($this->at(2))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn($message = $this->createMock(Message::class));
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                $message = $this->createMock(Message::class),
+            ));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -498,25 +490,19 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionStart);
-        $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
         $protocol
-            ->expects($this->at(2))
+            ->expects($this->exactly(3))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new Heartbeat);
-        $protocol
-            ->expects($this->at(3))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn($message = $this->createMock(Message::class));
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                new Heartbeat,
+                $message = $this->createMock(Message::class),
+            ));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -555,31 +541,30 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                new ConnectionClose,
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionClose);
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new ConnectionCloseOk)
-            ->willReturn(Str::of('close-ok'));
+            ->withConsecutive(
+                [new ConnectionStartOk],
+                [new ConnectionCloseOk],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                Str::of('close-ok'),
+            ));
         $socket
             ->method('write')
-            ->with($this->logicalOr(
-                $this->equalTo(Str::of('start-ok')),
-                $this->equalTo(Str::of('close-ok'))
-            ));
+            ->withConsecutive(
+                [Str::of('start-ok')],
+                [Str::of('close-ok')],
+            );
 
         $process = new Unix(
             $sockets,
@@ -621,20 +606,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                $this->throwException($this->createMock(StreamException::class)),
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($socket)
-            ->will($this->throwException($this->createMock(StreamException::class)));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -675,20 +658,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                $this->throwException($this->createMock(SocketException::class))
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStartOk)
             ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($socket)
-            ->will($this->throwException($this->createMock(SocketException::class)));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'));
@@ -729,28 +710,24 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                new ConnectionCloseOk,
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(3))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionCloseOk);
+            ->withConsecutive([new ConnectionStartOk], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                Str::of('close'),
+            ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
 
         $process = new Unix(
             $sockets,
@@ -787,28 +764,24 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStart,
+                $this->createMock(Message::class),
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(3))
-            ->method('decode')
-            ->with($socket)
-            ->willReturn($this->createMock(Message::class));
+            ->withConsecutive([new ConnectionStartOk], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                Str::of('close'),
+            ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
 
         $process = new Unix(
             $sockets,
@@ -937,20 +910,18 @@ class UnixTest extends TestCase
             ->method('resource')
             ->willReturn($resource);
         $protocol
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('decode')
             ->with($socket)
             ->willReturn(new ConnectionStart);
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $protocol
-            ->expects($this->at(2))
-            ->method('encode')
-            ->with($message)
-            ->willReturn(Str::of('message-to-send'));
+            ->withConsecutive([new ConnectionStartOk], [$message])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start-ok'),
+                Str::of('message-to-send'),
+            ));
         $socket
             ->method('write')
             ->with($this->callback(static function($message): bool {

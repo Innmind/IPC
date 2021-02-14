@@ -40,7 +40,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('closed')
             ->willReturn(false);
         $protocol
@@ -49,7 +49,7 @@ class ClientLifecycleTest extends TestCase
             ->with(new ConnectionStart)
             ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'));
 
@@ -65,18 +65,18 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('closed')
             ->willReturn(false);
+        $connection
+            ->expects($this->once())
+            ->method('write')
+            ->with(Str::of('start'));
         $protocol
             ->expects($this->once())
             ->method('encode')
             ->with(new ConnectionStart)
             ->willReturn(Str::of('start'));
-        $connection
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of('start'));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -108,32 +108,22 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
+            ->withConsecutive([Str::of('start')], [Str::of('close')])
+            ->will($this->onConsecutiveCalls(
+                null,
+                $this->throwException(new MessageNotSent)
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('close'))
-            ->will($this->throwException(new MessageNotSent));
+            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
         $clock
             ->expects($this->once())
             ->method('now');
@@ -152,18 +142,25 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
+            ->will($this->onConsecutiveCalls(
+                null,
+                $this->throwException(new MessageNotSent),
+            ));
+        $protocol
+            ->expects($this->exactly(2))
+            ->method('encode')
+            ->withConsecutive([new ConnectionStart], [new Heartbeat])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('heartbeat'),
+            ));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -181,20 +178,6 @@ class ClientLifecycleTest extends TestCase
             ->method('longerThan')
             ->with($heartbeat)
             ->willReturn(true);
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(1))
-            ->method('encode')
-            ->with(new Heartbeat)
-            ->willReturn(Str::of('heartbeat'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('heartbeat'))
-            ->will($this->throwException(new MessageNotSent));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
 
@@ -209,18 +192,21 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')]);
+        $protocol
+            ->expects($this->exactly(2))
+            ->method('encode')
+            ->withConsecutive([new ConnectionStart], [new Heartbeat])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('heartbeat'),
+            ));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -238,19 +224,6 @@ class ClientLifecycleTest extends TestCase
             ->method('longerThan')
             ->with($heartbeat)
             ->willReturn(true);
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(1))
-            ->method('encode')
-            ->with(new Heartbeat)
-            ->willReturn(Str::of('heartbeat'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('heartbeat'));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
 
@@ -265,20 +238,20 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
+            ->method('encode')
+            ->with(new ConnectionStart)
+            ->willReturn(Str::of('start'));
+        $protocol
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->will($this->throwException(new NoMessage));
@@ -300,20 +273,20 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
+            ->method('encode')
+            ->with(new ConnectionStart)
+            ->willReturn(Str::of('start'));
+        $protocol
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->willReturn($this->createMock(Message::class));
@@ -335,20 +308,20 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->once())
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->once())
+            ->method('encode')
+            ->with(new ConnectionStart)
+            ->willReturn(Str::of('start'));
+        $protocol
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->willReturn(new Heartbeat);
@@ -370,44 +343,26 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $connection
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of('start'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionClose);
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new ConnectionCloseOk)
-            ->willReturn(Str::of('close-ok'));
-        $connection
-            ->expects($this->at(2))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
         $connection
-            ->expects($this->at(3))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('close-ok'));
+            ->withConsecutive([Str::of('start')], [Str::of('close-ok')]);
         $connection
-            ->expects($this->at(4))
+            ->expects($this->once())
             ->method('close');
+        $protocol
+            ->expects($this->exactly(2))
+            ->method('encode')
+            ->withConsecutive([new ConnectionStart], [new ConnectionCloseOk])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close-ok')));
+        $protocol
+            ->expects($this->exactly(2))
+            ->method('decode')
+            ->with($connection)
+            ->will($this->onConsecutiveCalls(new ConnectionStartOk, new ConnectionClose));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -428,63 +383,39 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(5))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive(
+                [Str::of('start')],
+                [Str::of('received')],
+                [Str::of('received')],
+            );
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(3))
+            ->method('encode')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+                [new MessageReceived],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('received'),
+                Str::of('received'),
+            ));
+        $protocol
+            ->expects($this->exactly(3))
             ->method('decode')
             ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($message = $this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('received'));
-        $connection
-            ->expects($this->at(4))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(4))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($message);
-        $protocol
-            ->expects($this->at(5))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(5))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(6))
-            ->method('write')
-            ->with(Str::of('received'));
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $message = $this->createMock(Message::class),
+                $message,
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -508,51 +439,39 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $connection
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of('start'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
-            ->expects($this->at(3))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of('received'));
+            ->withConsecutive(
+                [Str::of('start')],
+                [Str::of('received')],
+                [Str::of('close')],
+            );
         $protocol
-            ->expects($this->at(4))
+            ->expects($this->exactly(3))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+                [new ConnectionClose],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('received'),
+                Str::of('close'),
+            ));
         $protocol
-            ->expects($this->at(5))
+            ->expects($this->exactly(3))
             ->method('decode')
             ->with($connection)
-            ->willReturn($this->createMock(Message::class));
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $this->createMock(Message::class),
+                $this->createMock(Message::class),
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -575,58 +494,42 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of('start'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
+            ->withConsecutive(
+                [Str::of('start')],
+                [Str::of('received')],
+                [Str::of('close')],
+            );
         $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('received'));
-        $connection
-            ->expects($this->at(4))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(4))
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $protocol
-            ->expects($this->at(5))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(5))
+            ->expects($this->once())
             ->method('close');
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('encode')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+                [new ConnectionClose],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('received'),
+                Str::of('close'),
+            ));
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('decode')
+            ->with($connection)
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $this->createMock(Message::class),
+                new ConnectionCloseOk,
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -649,59 +552,43 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(3))
             ->method('write')
-            ->with(Str::of('start'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
+            ->withConsecutive(
+                [Str::of('start')],
+                [Str::of('received')],
+                [Str::of('close')],
+            );
         $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('received'));
-        $connection
-            ->expects($this->at(4))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(4))
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $protocol
-            ->expects($this->at(5))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(5))
+            ->expects($this->once())
             ->method('close')
             ->will($this->throwException($this->createMock(StreamException::class)));
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('encode')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+                [new ConnectionClose],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('received'),
+                Str::of('close'),
+            ));
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('decode')
+            ->with($connection)
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $this->createMock(Message::class),
+                new ConnectionCloseOk,
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -724,59 +611,39 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $connection
-            ->expects($this->at(1))
-            ->method('write')
-            ->with(Str::of('start'));
-        $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
-            ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('received'));
-        $connection
-            ->expects($this->at(4))
-            ->method('closed')
-            ->willReturn(false);
-        $protocol
-            ->expects($this->at(4))
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $protocol
-            ->expects($this->at(5))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(5))
+            ->expects($this->once())
             ->method('close')
             ->will($this->throwException($this->createMock(SocketException::class)));
+        $connection
+            ->expects($this->atLeast(2))
+            ->method('write')
+            ->withConsecutive([Str::of('start')], [Str::of('received')]);
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('encode')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+                [new ConnectionClose],
+            )
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('received'),
+                Str::of('close'),
+            ));
+        $protocol
+            ->expects($this->exactly(3))
+            ->method('decode')
+            ->with($connection)
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $this->createMock(Message::class),
+                new ConnectionCloseOk,
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -802,50 +669,27 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('received')]);
         $protocol
-            ->expects($this->at(1))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(new ConnectionStartOk);
-        $protocol
-            ->expects($this->at(2))
-            ->method('decode')
-            ->with($connection)
-            ->willReturn($this->createMock(Message::class));
-        $protocol
-            ->expects($this->at(3))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new MessageReceived)
-            ->willReturn(Str::of('received'));
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('received'));
-        $connection
-            ->expects($this->at(4))
-            ->method('closed')
-            ->willReturn(false);
+            ->withConsecutive([new ConnectionStart], [new MessageReceived])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('received')));
         $protocol
-            ->expects($this->at(4))
+            ->expects($this->exactly(3))
             ->method('decode')
             ->with($connection)
-            ->willReturn($message);
+            ->will($this->onConsecutiveCalls(
+                new ConnectionStartOk,
+                $this->createMock(Message::class),
+                $message,
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
@@ -867,39 +711,26 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('close')]);
         $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
+            ->expects($this->once())
+            ->method('close');
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('close'));
+            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
         $protocol
-            ->expects($this->at(2))
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(4))
-            ->method('close');
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -920,40 +751,27 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('close')]);
         $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
+            ->expects($this->once())
+            ->method('close')
+            ->will($this->throwException($this->createMock(StreamException::class)));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('close'));
+            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
         $protocol
-            ->expects($this->at(2))
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(4))
-            ->method('close')
-            ->will($this->throwException($this->createMock(StreamException::class)));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -974,40 +792,27 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
+            ->withConsecutive([Str::of('start')], [Str::of('close')]);
         $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
+            ->expects($this->once())
+            ->method('close')
+            ->will($this->throwException($this->createMock(SocketException::class)));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('close'));
+            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
         $protocol
-            ->expects($this->at(2))
+            ->expects($this->once())
             ->method('decode')
             ->with($connection)
             ->willReturn(new ConnectionCloseOk);
-        $connection
-            ->expects($this->at(4))
-            ->method('close')
-            ->will($this->throwException($this->createMock(SocketException::class)));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -1028,32 +833,25 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->at(0))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
-        $protocol
-            ->expects($this->at(0))
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $connection
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('write')
-            ->with(Str::of('start'));
-        $connection
-            ->expects($this->at(2))
-            ->method('closed')
-            ->willReturn(false);
+            ->withConsecutive([Str::of('start')], [Str::of('close')])
+            ->will($this->onConsecutiveCalls(
+                null,
+                $this->throwException(new MessageNotSent),
+            ));
         $protocol
-            ->expects($this->at(1))
+            ->expects($this->exactly(2))
             ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('close'));
-        $connection
-            ->expects($this->at(3))
-            ->method('write')
-            ->with(Str::of('close'))
-            ->will($this->throwException(new MessageNotSent));
+            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
+            ->will($this->onConsecutiveCalls(
+                Str::of('start'),
+                Str::of('close'),
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
 
