@@ -8,19 +8,19 @@ use Innmind\IPC\{
     Exception\DomainException,
 };
 use PHPUnit\Framework\TestCase;
-use Eris\{
-    Generator,
-    TestTrait,
+use Innmind\BlackBox\{
+    PHPUnit\BlackBox,
+    Set,
 };
 
 class NameTest extends TestCase
 {
-    use TestTrait;
+    use BlackBox;
 
     public function testInterface()
     {
         $this
-            ->forAll(Generator\elements(
+            ->forAll(Set\Elements::of(
                 'fooBar',
                 'foo_bar',
                 'foo-bar',
