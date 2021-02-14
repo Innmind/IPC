@@ -16,7 +16,7 @@ class FunctionalTest extends TestCase
     public function testBehaviour()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $processes->execute(
             Command::background('php')
@@ -35,12 +35,12 @@ class FunctionalTest extends TestCase
 
     public function testKillServer()
     {
-        if (getenv('CI')) {
+        if (\getenv('CI')) {
             return;
         }
 
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
@@ -51,6 +51,6 @@ class FunctionalTest extends TestCase
         $server->wait();
 
         $this->assertTrue($server->exitCode()->isSuccessful());
-        $this->assertFalse(file_exists($os->status()->tmp()->toString().'/innmind/ipc/server.sock'));
+        $this->assertFalse(\file_exists($os->status()->tmp()->toString().'/innmind/ipc/server.sock'));
     }
 }

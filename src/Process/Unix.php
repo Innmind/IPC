@@ -89,9 +89,6 @@ final class Unix implements Process
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function wait(ElapsedPeriod $timeout = null): Message
     {
         do {

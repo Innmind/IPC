@@ -34,9 +34,6 @@ final class Binary implements Protocol
         );
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function decode(Readable $stream): Message
     {
         $length = $stream->read(2);

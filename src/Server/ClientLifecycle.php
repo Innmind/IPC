@@ -181,6 +181,7 @@ final class ClientLifecycle
             return $this->protocol->decode($this->connection);
         } catch (NoMessage $e) {
             $this->garbage = true;
+
             throw $e;
         }
     }

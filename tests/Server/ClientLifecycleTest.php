@@ -259,7 +259,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(function() use (&$called) {
+        $this->assertNull($lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -294,7 +294,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(function() use (&$called) {
+        $this->assertNull($lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -329,7 +329,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(function() use (&$called) {
+        $this->assertNull($lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -366,7 +366,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
-        $callback = function() use (&$called) {
+        $callback = static function() use (&$called) {
             $called = true;
         };
 
@@ -475,7 +475,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
-        $callback = function($_, $client) use (&$called) {
+        $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
@@ -533,7 +533,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
-        $callback = function($_, $client) use (&$called) {
+        $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
@@ -592,7 +592,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
-        $callback = function($_, $client) use (&$called) {
+        $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
@@ -647,7 +647,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
-        $callback = function($_, $client) use (&$called) {
+        $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
@@ -693,7 +693,7 @@ class ClientLifecycleTest extends TestCase
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = 0;
-        $callback = function($a, $b) use (&$called) {
+        $callback = static function($a, $b) use (&$called) {
             ++$called;
         };
 
@@ -737,7 +737,7 @@ class ClientLifecycleTest extends TestCase
 
         $this->assertNull($lifecycle->shutdown());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
-        $lifecycle->notify(function() use (&$called) {
+        $lifecycle->notify(static function() use (&$called) {
             $called = true;
         });
         $this->assertFalse($called);
@@ -778,7 +778,7 @@ class ClientLifecycleTest extends TestCase
 
         $this->assertNull($lifecycle->shutdown());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
-        $lifecycle->notify(function() use (&$called) {
+        $lifecycle->notify(static function() use (&$called) {
             $called = true;
         });
         $this->assertFalse($called);
@@ -819,7 +819,7 @@ class ClientLifecycleTest extends TestCase
 
         $this->assertNull($lifecycle->shutdown());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
-        $lifecycle->notify(function() use (&$called) {
+        $lifecycle->notify(static function() use (&$called) {
             $called = true;
         });
         $this->assertFalse($called);

@@ -60,9 +60,6 @@ final class Unix implements IPC
         $this->heartbeat = $heartbeat;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function processes(): Set
     {
         return $this
@@ -74,9 +71,6 @@ final class Unix implements IPC
             );
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function get(Process\Name $name): Process
     {
         if (!$this->exist($name)) {

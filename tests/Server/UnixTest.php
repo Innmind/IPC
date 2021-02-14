@@ -23,7 +23,6 @@ use Innmind\TimeContinuum\{
     Earth\ElapsedPeriod as Timeout,
     PointInTime,
 };
-use Innmind\MediaType\MediaType;
 use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
@@ -69,7 +68,7 @@ class UnixTest extends TestCase
             ->will($this->throwException($expected = $this->createMock(StreamException::class)));
 
         try {
-            $receive(function(){});
+            $receive(static function() {});
 
             $this->fail('it should throw');
         } catch (RuntimeException $e) {
@@ -93,7 +92,7 @@ class UnixTest extends TestCase
             ->will($this->throwException($expected = $this->createMock(SocketException::class)));
 
         try {
-            $receive(function(){});
+            $receive(static function() {});
 
             $this->fail('it should throw');
         } catch (RuntimeException $e) {
@@ -150,7 +149,7 @@ class UnixTest extends TestCase
             ->with($timeout)
             ->willReturn(true);
 
-        $this->assertNull($receive(function(){}));
+        $this->assertNull($receive(static function() {}));
     }
 
     public function testInstallSignalsHandlerOnlyWhenStartingTheServer()
@@ -202,7 +201,7 @@ class UnixTest extends TestCase
             );
 
         try {
-            $server(function() {
+            $server(static function() {
                 throw new Stop;
             });
         } catch (\Exception $e) {
@@ -211,7 +210,7 @@ class UnixTest extends TestCase
 
         try {
             // check signals are not registered twice
-            $server(function() {
+            $server(static function() {
                 throw new Stop;
             });
         } catch (\Exception $e) {
@@ -222,7 +221,7 @@ class UnixTest extends TestCase
     public function testShutdownProcess()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
@@ -247,7 +246,7 @@ class UnixTest extends TestCase
     public function testClientClose()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
@@ -272,7 +271,7 @@ class UnixTest extends TestCase
     public function testBidirectionalHeartbeat()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
@@ -297,7 +296,7 @@ class UnixTest extends TestCase
     public function testEmergencyShutdown()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
@@ -326,7 +325,7 @@ class UnixTest extends TestCase
     public function testRespondToClientClose()
     {
         $os = Factory::build();
-        @unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
