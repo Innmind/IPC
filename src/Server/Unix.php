@@ -76,9 +76,6 @@ final class Unix implements Server
         };
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function __invoke(callable $listen): void
     {
         // reset state in case the server is restarted
@@ -95,6 +92,7 @@ final class Unix implements Server
             // stop receiving messages
         } catch (Stream | Socket $e) {
             $this->unregisterSignals();
+
             throw new RuntimeException('', 0, $e);
         }
     }
@@ -194,7 +192,7 @@ final class Unix implements Server
         $this
             ->connections
             ->values()
-            ->foreach(function(ClientLifecycle $client): void {
+            ->foreach(static function(ClientLifecycle $client): void {
                 $client->shutdown();
             });
     }
@@ -231,7 +229,7 @@ final class Unix implements Server
                 return !$activeSockets->contains($connection);
             })
             ->values()
-            ->foreach(function(ClientLifecycle $client): void {
+            ->foreach(static function(ClientLifecycle $client): void {
                 $client->heartbeat();
             });
     }

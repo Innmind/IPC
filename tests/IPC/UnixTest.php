@@ -269,17 +269,13 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('halt');
         $clock
-            ->expects($this->at(0))
+            ->expects($this->exactly(3))
             ->method('now')
-            ->willReturn($start = $this->createMock(PointInTime::class));
-        $clock
-            ->expects($this->at(1))
-            ->method('now')
-            ->willReturn($firstIteration = $this->createMock(PointInTime::class));
-        $clock
-            ->expects($this->at(2))
-            ->method('now')
-            ->willReturn($secondIteration = $this->createMock(PointInTime::class));
+            ->will($this->onConsecutiveCalls(
+                $start = $this->createMock(PointInTime::class),
+                $firstIteration = $this->createMock(PointInTime::class),
+                $secondIteration = $this->createMock(PointInTime::class),
+            ));
         $firstIteration
             ->expects($this->once())
             ->method('elapsedSince')
