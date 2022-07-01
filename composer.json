@@ -24,8 +24,7 @@
     "autoload": {
         "psr-4": {
             "Innmind\\IPC\\": "src/"
-        },
-        "files": ["src/bootstrap.php"]
+        }
     },
     "autoload-dev": {
         "psr-4": {

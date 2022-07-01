@@ -1,8 +1,8 @@
 <?php
 declare(strict_types = 1);
 
-use function Innmind\IPC\bootstrap;
 use Innmind\IPC\{
+    Factory as IPC,
     Message,
     Process\Name,
 };
@@ -13,7 +13,7 @@ use Innmind\Immutable\Str;
 require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
-$ipc = bootstrap($os);
+$ipc = IPC::build($os);
 $ipc->wait(new Name('server'));
 $process = $ipc->get(new Name('server'));
 $process->send(new Message\Generic(
