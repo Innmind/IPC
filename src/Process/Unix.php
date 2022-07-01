@@ -12,7 +12,6 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
-    Exception\FailedToConnect,
     Exception\ConnectionClosed,
     Exception\Timedout,
     Exception\InvalidConnectionClose,
@@ -34,6 +33,7 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     PointInTime,
 };
+use Innmind\Immutable\Maybe;
 
 final class Unix implements Process
 {
@@ -45,25 +45,43 @@ final class Unix implements Process
     private PointInTime $lastReceivedData;
     private bool $closed = false;
 
-    public function __construct(
+    private function __construct(
+        Client $socket,
+        Watch $watch,
+        Protocol $protocol,
+        Clock $clock,
+        Name $name,
+    ) {
+        $this->socket = $socket;
+        $this->watch = $watch;
+        $this->protocol = $protocol;
+        $this->clock = $clock;
+        $this->name = $name;
+        $this->lastReceivedData = $clock->now();
+    }
+
+    /**
+     * @return Maybe<Process>
+     */
+    public static function of(
         Sockets $sockets,
         Protocol $protocol,
         Clock $clock,
         Address $address,
         Name $name,
         ElapsedPeriod $watchTimeout,
-    ) {
-        $this->socket = $sockets->connectTo($address)->match(
-            static fn($socket) => $socket,
-            static fn() => throw new FailedToConnect($name->toString()),
-        );
-
-        $this->watch = $sockets->watch($watchTimeout)->forRead($this->socket);
-        $this->protocol = $protocol;
-        $this->clock = $clock;
-        $this->name = $name;
-        $this->lastReceivedData = $clock->now();
-        $this->open();
+    ): Maybe {
+        /** @var Maybe<Process> */
+        return $sockets
+            ->connectTo($address)
+            ->map(static fn($socket) => new self(
+                $socket,
+                $sockets->watch($watchTimeout)->forRead($socket),
+                $protocol,
+                $clock,
+                $name,
+            ))
+            ->flatMap(static fn($self) => $self->open());
     }
 
     public function name(): Name
@@ -155,19 +173,32 @@ final class Unix implements Process
         return $this->closed || $this->socket->closed();
     }
 
-    private function open(): void
+    /**
+     * @return Maybe<Process>
+     */
+    private function open(): Maybe
     {
         try {
             $message = $this->wait();
         } catch (RuntimeException $e) {
-            throw new FailedToConnect($this->name()->toString(), 0, $e);
+            /** @var Maybe<Process> */
+            return Maybe::nothing();
         }
 
         if (!$message->equals(new ConnectionStart)) {
-            throw new FailedToConnect($this->name()->toString());
+            /** @var Maybe<Process> */
+            return Maybe::nothing();
         }
 
-        $this->sendMessage(new ConnectionStartOk);
+        try {
+            $this->sendMessage(new ConnectionStartOk);
+        } catch (RuntimeException) {
+            /** @var Maybe<Process> */
+            return Maybe::nothing();
+        }
+
+        /** @var Maybe<Process> */
+        return Maybe::just($this);
     }
 
     private function cut(): void

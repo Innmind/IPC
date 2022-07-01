@@ -114,7 +114,7 @@ class UnixTest extends TestCase
         $this->assertSame('bar', $bar->toString());
     }
 
-    public function testThrowWhenGettingUnknownProcess()
+    public function testReturnNothingWhenGettingUnknownProcess()
     {
         $ipc = new Unix(
             $this->createMock(Sockets::class),
@@ -131,9 +131,10 @@ class UnixTest extends TestCase
             ->with(new FileName('foo.sock'))
             ->willReturn(false);
 
-        $this->expectException(LogicException::class);
-
-        $ipc->get(new Name('foo'));
+        $this->assertNull($ipc->get(new Name('foo'))->match(
+            static fn($foo) => $foo,
+            static fn() => null,
+        ));
     }
 
     public function testGetProcess()
@@ -179,7 +180,10 @@ class UnixTest extends TestCase
             ->method('decode')
             ->willReturn(new ConnectionStart);
 
-        $foo = $ipc->get(new Name('foo'));
+        $foo = $ipc->get(new Name('foo'))->match(
+            static fn($foo) => $foo,
+            static fn() => null,
+        );
 
         $this->assertInstanceOf(Process\Unix::class, $foo);
         $this->assertSame('foo', $foo->name()->toString());

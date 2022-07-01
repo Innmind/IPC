@@ -16,7 +16,10 @@ require __DIR__.'/../vendor/autoload.php';
 $os = Factory::build();
 $ipc = IPC::build($os);
 $ipc->wait(new Name('server'));
-$process = $ipc->get(new Name('server'));
+$process = $ipc->get(new Name('server'))->match(
+    static fn($process) => $process,
+    static fn() => null,
+);
 $process->send(new Message\Generic(
     MediaType::of('text/plain'),
     Str::of('hello world')

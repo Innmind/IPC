@@ -14,7 +14,6 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
-    Exception\FailedToConnect,
     Exception\ConnectionClosed,
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
@@ -89,20 +88,23 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertInstanceOf(Process::class, $process);
         $this->assertSame($name, $process->name());
     }
 
-    public function testThrowWhenFailedConnectionStart()
+    public function testReturnNothingWhenFailedConnectionStart()
     {
         $timeout = new Timeout(1000);
         $sockets = $this->createMock(Sockets::class);
@@ -133,17 +135,19 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $this->expectException(FailedToConnect::class);
-        $this->expectExceptionMessage('foo');
-
-        new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
+
+        $this->assertNull($process);
     }
 
     public function testSend()
@@ -190,13 +194,16 @@ class UnixTest extends TestCase
             )
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertNull($process->send($message));
@@ -243,13 +250,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->expectException(RuntimeException::class);
@@ -298,13 +308,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->expectException(RuntimeException::class);
@@ -357,13 +370,16 @@ class UnixTest extends TestCase
                 true,
             ));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertNull($process->send($this->createMock(Message::class)));
@@ -415,13 +431,16 @@ class UnixTest extends TestCase
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         try {
@@ -472,13 +491,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertSame($message, $process->wait());
@@ -524,13 +546,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertSame($message, $process->wait());
@@ -587,13 +612,16 @@ class UnixTest extends TestCase
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         try {
@@ -644,13 +672,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->expectException(RuntimeException::class);
@@ -697,13 +728,16 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->expectException(RuntimeException::class);
@@ -756,13 +790,16 @@ class UnixTest extends TestCase
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertNull($process->close());
@@ -814,13 +851,16 @@ class UnixTest extends TestCase
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         try {
@@ -845,13 +885,16 @@ class UnixTest extends TestCase
 
         \sleep(1);
 
-        $process = new Unix(
+        $process = Unix::of(
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             $name = new Name('server'),
             new Timeout(1000),
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         try {
@@ -870,7 +913,7 @@ class UnixTest extends TestCase
         }
     }
 
-    public function testThrowWhenStreamErrorWhenConnecting()
+    public function testReturnNothingWhenSocketErrorWhenConnecting()
     {
         $sockets = $this->createMock(Sockets::class);
         $protocol = $this->createMock(Protocol::class);
@@ -881,47 +924,19 @@ class UnixTest extends TestCase
             ->with($address)
             ->willReturn(Maybe::nothing());
 
-        try {
-            new Unix(
-                $sockets,
-                $protocol,
-                $this->createMock(Clock::class),
-                $address,
-                new Name('foo'),
-                new Timeout(1000),
-            );
+        $process = Unix::of(
+            $sockets,
+            $protocol,
+            $this->createMock(Clock::class),
+            $address,
+            new Name('foo'),
+            new Timeout(1000),
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
+        );
 
-            $this->fail('it should throw');
-        } catch (\Throwable $e) {
-            $this->assertInstanceOf(FailedToConnect::class, $e);
-        }
-    }
-
-    public function testThrowWhenSocketErrorWhenConnecting()
-    {
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->willReturn(Maybe::nothing());
-
-        try {
-            new Unix(
-                $sockets,
-                $protocol,
-                $this->createMock(Clock::class),
-                $address,
-                new Name('foo'),
-                new Timeout(1000),
-            );
-
-            $this->fail('it should throw');
-        } catch (\Throwable $e) {
-            $this->assertInstanceOf(FailedToConnect::class, $e);
-        }
+        $this->assertNull($process);
     }
 
     public function testThrowWhenFailedToSendMessage()
@@ -971,13 +986,16 @@ class UnixTest extends TestCase
             }))
             ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
             $name = new Name('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->expectException(MessageNotSent::class);

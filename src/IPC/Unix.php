@@ -26,7 +26,10 @@ use Innmind\OperatingSystem\{
 };
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\Url\Path;
-use Innmind\Immutable\Set;
+use Innmind\Immutable\{
+    Set,
+    Maybe,
+};
 
 final class Unix implements IPC
 {
@@ -68,13 +71,14 @@ final class Unix implements IPC
             ->map(static fn($file) => new Process\Name($file->name()->toString()));
     }
 
-    public function get(Process\Name $name): Process
+    public function get(Process\Name $name): Maybe
     {
         if (!$this->exist($name)) {
-            throw new LogicException($name->toString());
+            /** @var Maybe<Process> */
+            return Maybe::nothing();
         }
 
-        return new Process\Unix(
+        return Process\Unix::of(
             $this->sockets,
             $this->protocol,
             $this->clock,
