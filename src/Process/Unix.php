@@ -12,7 +12,6 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
-    Exception\ConnectionClosed,
     Exception\Timedout,
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
@@ -27,6 +26,7 @@ use Innmind\Socket\{
 };
 use Innmind\Stream\{
     Watch,
+    Selectable,
     Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
@@ -34,7 +34,10 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     PointInTime,
 };
-use Innmind\Immutable\Maybe;
+use Innmind\Immutable\{
+    Maybe,
+    Set,
+};
 
 final class Unix implements Process
 {
@@ -107,21 +110,23 @@ final class Unix implements Process
         }
     }
 
-    public function wait(ElapsedPeriod $timeout = null): Message
+    public function wait(ElapsedPeriod $timeout = null): Maybe
     {
         do {
             if ($this->closed()) {
                 $this->cut();
 
-                throw new ConnectionClosed;
+                /** @var Maybe<Message> */
+                return Maybe::nothing();
             }
 
-            $ready = ($this->watch)()->match(
-                static fn($ready) => $ready,
-                static fn() => throw new RuntimeException,
+            /** @var Set<Selectable> */
+            $toRead = ($this->watch)()->match(
+                static fn($ready) => $ready->toRead(),
+                static fn() => Set::of(),
             );
 
-            $receivedData = $ready->toRead()->contains($this->socket);
+            $receivedData = $toRead->contains($this->socket);
 
             if (!$receivedData) {
                 $this->sendMessage(new Heartbeat);
@@ -131,23 +136,27 @@ final class Unix implements Process
 
         $this->lastReceivedData = $this->clock->now();
 
-        $message = $this->protocol->decode($this->socket)->match(
-            static fn($message) => $message,
-            static fn() => throw new NoMessage,
-        );
+        return $this
+            ->protocol
+            ->decode($this->socket)
+            ->flatMap(function($message) use ($timeout) {
+                if ($message->equals(new Heartbeat)) {
+                    return $this->wait($timeout);
+                }
 
-        if ($message->equals(new Heartbeat)) {
-            return $this->wait($timeout);
-        }
+                return Maybe::just($message);
+            })
+            ->flatMap(function($message) {
+                if ($message->equals(new ConnectionClose)) {
+                    $this->sendMessage(new ConnectionCloseOk);
+                    $this->cut();
 
-        if ($message->equals(new ConnectionClose)) {
-            $this->sendMessage(new ConnectionCloseOk);
-            $this->cut();
+                    /** @var Maybe<Message> */
+                    return Maybe::nothing();
+                }
 
-            throw new ConnectionClosed;
-        }
-
-        return $message;
+                return Maybe::just($message);
+            });
     }
 
     public function close(): void
@@ -157,15 +166,19 @@ final class Unix implements Process
         }
 
         $this->sendMessage(new ConnectionClose);
-        $message = $this->wait();
 
-        if (!$message->equals(new ConnectionCloseOk)) {
+        try {
+            $_ = $this->wait()->match(
+                function($message) {
+                    if (!$message->equals(new ConnectionCloseOk)) {
+                        throw new InvalidConnectionClose($this->name()->toString());
+                    }
+                },
+                static fn() => null,
+            );
+        } finally {
             $this->cut();
-
-            throw new InvalidConnectionClose($this->name()->toString());
         }
-
-        $this->cut();
     }
 
     public function closed(): bool
@@ -178,27 +191,12 @@ final class Unix implements Process
      */
     private function open(): Maybe
     {
-        try {
-            $message = $this->wait();
-        } catch (RuntimeException $e) {
-            /** @var Maybe<Process> */
-            return Maybe::nothing();
-        }
-
-        if (!$message->equals(new ConnectionStart)) {
-            /** @var Maybe<Process> */
-            return Maybe::nothing();
-        }
-
-        try {
-            $this->sendMessage(new ConnectionStartOk);
-        } catch (RuntimeException) {
-            /** @var Maybe<Process> */
-            return Maybe::nothing();
-        }
-
         /** @var Maybe<Process> */
-        return Maybe::just($this);
+        return $this
+            ->wait()
+            ->filter(static fn($message) => $message->equals(new ConnectionStart))
+            ->map(fn() => $this->sendMessage(new ConnectionStartOk))
+            ->map(fn() => $this);
     }
 
     private function cut(): void

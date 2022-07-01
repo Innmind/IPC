@@ -5,11 +5,13 @@ use Innmind\IPC\{
     Factory as IPC,
     Message,
     Process\Name,
-    Exception\ConnectionClosed,
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\MediaType\MediaType;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Maybe,
+};
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -23,10 +25,14 @@ $process->send(new Message\Generic(
     MediaType::of('text/plain'),
     Str::of('hello world')
 ));
-$message = $process->wait();
-
-try {
-    $process->wait();
-} catch (ConnectionClosed $e) {
-    echo $message->content()->toString();
-}
+$_ = $process
+    ->wait()
+    ->flatMap(
+        static fn($message) => $process
+            ->wait()
+            ->otherwise(static fn() => Maybe::just($message)),
+    )
+    ->match(
+        static fn($message) => print($message->content()->toString()),
+        static fn() => null,
+    );

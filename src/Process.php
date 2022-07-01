@@ -4,6 +4,7 @@ declare(strict_types = 1);
 namespace Innmind\IPC;
 
 use Innmind\TimeContinuum\ElapsedPeriod;
+use Innmind\Immutable\Maybe;
 
 interface Process
 {
@@ -11,9 +12,9 @@ interface Process
     public function send(Message ...$messages): void;
 
     /**
-     * @throws Exception\Timedout
+     * @return Maybe<Message>
      */
-    public function wait(ElapsedPeriod $timeout = null): Message;
+    public function wait(ElapsedPeriod $timeout = null): Maybe;
     public function close(): void;
     public function closed(): bool;
 }

@@ -14,7 +14,6 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
-    Exception\ConnectionClosed,
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
     Exception\Timedout,
@@ -443,13 +442,11 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        try {
-            $process->wait();
-
-            $this->fail('it should throw');
-        } catch (ConnectionClosed $e) {
-            $this->assertTrue($process->closed());
-        }
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
+        $this->assertTrue($process->closed());
     }
 
     public function testWait()
@@ -503,7 +500,10 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->assertSame($message, $process->wait());
+        $this->assertSame($message, $process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testDiscardHeartbeatWhenWaiting()
@@ -558,7 +558,10 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->assertSame($message, $process->wait());
+        $this->assertSame($message, $process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testConfirmCloseWhenWaiting()
@@ -624,16 +627,14 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        try {
-            $process->wait();
-
-            $this->fail('it should throw');
-        } catch (ConnectionClosed $e) {
-            $this->assertTrue($process->closed());
-        }
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
+        $this->assertTrue($process->closed());
     }
 
-    public function testWrapSocketExceptionWhenErrorAtWait()
+    public function testReturnNothingWhenNoMessageDecoded()
     {
         $timeout = new Timeout(1000);
         $sockets = $this->createMock(Sockets::class);
@@ -684,9 +685,10 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->expectException(RuntimeException::class);
-
-        $process->wait();
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testClose()

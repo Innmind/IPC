@@ -5,7 +5,6 @@ use Innmind\IPC\{
     Factory as IPC,
     Message,
     Process\Name,
-    Exception\ConnectionClosed,
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\MediaType\MediaType;
@@ -23,8 +22,7 @@ $process->send(new Message\Generic(
     MediaType::of('text/plain'),
     Str::of('hello world')
 ));
-
-try {
-    $process->wait();
-} catch (ConnectionClosed $e) {
-}
+$_ = $process->wait()->match(
+    static fn() => null,
+    static fn() => null,
+);
