@@ -43,7 +43,7 @@ final class ClientLifecycle
         Connection $connection,
         Protocol $protocol,
         Clock $clock,
-        ElapsedPeriod $heartbeat
+        ElapsedPeriod $heartbeat,
     ) {
         $this->connection = $connection;
         $this->protocol = $protocol;

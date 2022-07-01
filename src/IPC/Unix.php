@@ -45,7 +45,7 @@ final class Unix implements IPC
         CurrentProcess $process,
         Protocol $protocol,
         Path $path,
-        ElapsedPeriod $heartbeat
+        ElapsedPeriod $heartbeat,
     ) {
         if (!$path->directory()) {
             throw new LogicException("Path must be a directory, got '{$path->toString()}'");

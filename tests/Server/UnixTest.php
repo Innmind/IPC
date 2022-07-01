@@ -47,8 +47,8 @@ class UnixTest extends TestCase
                 $this->createMock(Clock::class),
                 $this->createMock(Signals::class),
                 Address::of('/tmp/foo.sock'),
-                new Timeout(1000)
-            )
+                new Timeout(1000),
+            ),
         );
     }
 
@@ -60,7 +60,7 @@ class UnixTest extends TestCase
             $this->createMock(Clock::class),
             $this->createMock(Signals::class),
             Address::of('/tmp/foo.sock'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $sockets
             ->expects($this->once())
@@ -84,7 +84,7 @@ class UnixTest extends TestCase
             $this->createMock(Clock::class),
             $this->createMock(Signals::class),
             Address::of('/tmp/foo.sock'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $sockets
             ->expects($this->once())
@@ -109,7 +109,7 @@ class UnixTest extends TestCase
             $this->createMock(Signals::class),
             $address = Address::of('/tmp/foo.sock'),
             $heartbeat = new Timeout(10),
-            $timeout = $this->createMock(ElapsedPeriod::class)
+            $timeout = $this->createMock(ElapsedPeriod::class),
         );
         $sockets
             ->expects($this->once())
@@ -163,7 +163,7 @@ class UnixTest extends TestCase
             $signals,
             $address = Address::of('/tmp/foo.sock'),
             $heartbeat = new Timeout(10),
-            $this->createMock(ElapsedPeriod::class)
+            $this->createMock(ElapsedPeriod::class),
         );
         $sockets
             ->expects($this->any())
@@ -225,7 +225,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php')
+                ->withArgument('fixtures/long-client.php'),
         );
 
         $listen = new Unix(
@@ -235,7 +235,7 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(10000)
+            new Timeout(10000),
         );
 
         $this->assertNull($listen(static function() {
@@ -250,7 +250,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php')
+                ->withArgument('fixtures/long-client.php'),
         );
 
         $listen = new Unix(
@@ -260,7 +260,7 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
         $this->assertNull($listen(static function($message, $client) {
@@ -275,7 +275,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php')
+                ->withArgument('fixtures/long-client.php'),
         );
 
         $listen = new Unix(
@@ -285,7 +285,7 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
         $this->assertNull($listen(static function() {
@@ -300,7 +300,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php')
+                ->withArgument('fixtures/long-client.php'),
         );
 
         $listen = new Unix(
@@ -310,7 +310,7 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
         $this->expectException(\Exception::class);
@@ -329,7 +329,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/self-closing-client.php')
+                ->withArgument('fixtures/self-closing-client.php'),
         );
 
         $listen = new Unix(
@@ -339,7 +339,7 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
         $this->assertNull($listen(static function() {

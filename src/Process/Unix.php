@@ -51,7 +51,7 @@ final class Unix implements Process
         Clock $clock,
         Address $address,
         Name $name,
-        ElapsedPeriod $watchTimeout
+        ElapsedPeriod $watchTimeout,
     ) {
         try {
             $this->socket = $sockets->connectTo($address);

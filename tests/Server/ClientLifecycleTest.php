@@ -82,7 +82,7 @@ class ClientLifecycleTest extends TestCase
             ->method('now')
             ->will($this->onConsecutiveCalls(
                 $start = $this->createMock(PointInTime::class),
-                $now = $this->createMock(PointInTime::class)
+                $now = $this->createMock(PointInTime::class),
             ));
         $now
             ->expects($this->once())
@@ -117,7 +117,7 @@ class ClientLifecycleTest extends TestCase
             ->withConsecutive([Str::of('start')], [Str::of('close')])
             ->will($this->onConsecutiveCalls(
                 null,
-                $this->throwException(new MessageNotSent)
+                $this->throwException(new MessageNotSent),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -166,7 +166,7 @@ class ClientLifecycleTest extends TestCase
             ->method('now')
             ->will($this->onConsecutiveCalls(
                 $start = $this->createMock(PointInTime::class),
-                $now = $this->createMock(PointInTime::class)
+                $now = $this->createMock(PointInTime::class),
             ));
         $now
             ->expects($this->once())
@@ -212,7 +212,7 @@ class ClientLifecycleTest extends TestCase
             ->method('now')
             ->will($this->onConsecutiveCalls(
                 $start = $this->createMock(PointInTime::class),
-                $now = $this->createMock(PointInTime::class)
+                $now = $this->createMock(PointInTime::class),
             ));
         $now
             ->expects($this->once())

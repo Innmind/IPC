@@ -20,12 +20,12 @@ class FunctionalTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::background('php')
-                ->withArgument('fixtures/server.php')
+                ->withArgument('fixtures/server.php'),
         );
         $process = $processes
             ->execute(
                 Command::foreground('php')
-                    ->withArgument('fixtures/client.php')
+                    ->withArgument('fixtures/client.php'),
             );
         $process->wait();
         $output = $process->output()->toString();
@@ -44,7 +44,7 @@ class FunctionalTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/eternal-server.php')
+                ->withArgument('fixtures/eternal-server.php'),
         );
         $os->process()->halt(new Second(1));
         $processes->kill($server->pid(), Signal::interrupt());

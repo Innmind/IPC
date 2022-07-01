@@ -60,7 +60,7 @@ final class Unix implements Server
         Signals $signals,
         Address $address,
         ElapsedPeriod $heartbeat,
-        ElapsedPeriod $timeout = null
+        ElapsedPeriod $timeout = null,
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;

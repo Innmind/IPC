@@ -53,8 +53,8 @@ class UnixTest extends TestCase
                 $this->createMock(CurrentProcess::class),
                 $this->createMock(Protocol::class),
                 Path::of('/tmp/somewhere/'),
-                new Timeout(1000)
-            )
+                new Timeout(1000),
+            ),
         );
     }
 
@@ -70,7 +70,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/somewhere'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
     }
 
@@ -83,7 +83,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
@@ -93,7 +93,7 @@ class UnixTest extends TestCase
                     File::class,
                     $foo = $this->createMock(File::class),
                     $bar = $this->createMock(File::class),
-                )
+                ),
             );
         $foo
             ->method('name')
@@ -125,7 +125,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/somewhere/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
@@ -147,7 +147,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            $heartbeat = new Timeout(1000)
+            $heartbeat = new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
@@ -192,7 +192,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->exactly(2))
@@ -213,12 +213,12 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
 
         $server = $ipc->listen(
             new Name('bar'),
-            $this->createMock(ElapsedPeriod::class)
+            $this->createMock(ElapsedPeriod::class),
         );
 
         $this->assertInstanceOf(Server\Unix::class, $server);
@@ -233,7 +233,7 @@ class UnixTest extends TestCase
             $process = $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->exactly(3))
@@ -257,7 +257,7 @@ class UnixTest extends TestCase
             $process = $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $timeout = $this->createMock(ElapsedPeriod::class);
         $filesystem

@@ -27,7 +27,7 @@ class BinaryTest extends TestCase
         $protocol = new Binary;
         $message = new Message\Generic(
             MediaType::of('application/json'),
-            Str::of('{"foo":"bar🙏"}')
+            Str::of('{"foo":"bar🙏"}'),
         );
 
         $binary = $protocol->encode($message);

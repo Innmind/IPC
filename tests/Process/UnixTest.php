@@ -343,7 +343,7 @@ class UnixTest extends TestCase
             ->will($this->onConsecutiveCalls(
                 false,
                 false,
-                true
+                true,
             ));
 
         $process = new Unix(
@@ -397,7 +397,7 @@ class UnixTest extends TestCase
             ->will($this->onConsecutiveCalls(
                 false,
                 false,
-                true
+                true,
             ));
 
         $process = new Unix(
@@ -663,7 +663,7 @@ class UnixTest extends TestCase
             ->with($socket)
             ->will($this->onConsecutiveCalls(
                 new ConnectionStart,
-                $this->throwException($this->createMock(SocketException::class))
+                $this->throwException($this->createMock(SocketException::class)),
             ));
         $protocol
             ->expects($this->once())
@@ -808,7 +808,7 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/eternal-server.php')
+                ->withArgument('fixtures/eternal-server.php'),
         );
 
         \sleep(1);
@@ -819,7 +819,7 @@ class UnixTest extends TestCase
             $os->clock(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             $name = new Name('server'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
 
         try {
@@ -850,7 +850,7 @@ class UnixTest extends TestCase
                 $this->createMock(Clock::class),
                 $address,
                 new Name('foo'),
-                new Timeout(1000)
+                new Timeout(1000),
             );
 
             $this->fail('it should throw');
@@ -877,7 +877,7 @@ class UnixTest extends TestCase
                 $this->createMock(Clock::class),
                 $address,
                 new Name('foo'),
-                new Timeout(1000)
+                new Timeout(1000),
             );
 
             $this->fail('it should throw');

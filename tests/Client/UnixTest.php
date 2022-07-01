@@ -29,8 +29,8 @@ class UnixTest extends TestCase
             Client::class,
             new Unix(
                 $this->createMock(Connection::class),
-                $this->createMock(Protocol::class)
-            )
+                $this->createMock(Protocol::class),
+            ),
         );
     }
 
@@ -38,7 +38,7 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
         $message = $this->createMock(Message::class);
         $connection
@@ -59,7 +59,7 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
@@ -80,7 +80,7 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
         $message = $this->createMock(Message::class);
         $connection
@@ -102,7 +102,7 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
@@ -123,7 +123,7 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
