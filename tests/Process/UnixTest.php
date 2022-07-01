@@ -77,7 +77,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -129,7 +129,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn($this->createMock(Message::class));
+            ->willReturn(Maybe::just($this->createMock(Message::class)));
         $socket
             ->method('write')
             ->with(Str::of('start-ok'))
@@ -177,7 +177,7 @@ class UnixTest extends TestCase
             ->expects($this->atLeast(1))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -236,7 +236,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -294,7 +294,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -350,7 +350,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -410,7 +410,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -483,8 +483,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $message = $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just($message = $this->createMock(Message::class)),
             ));
         $socket
             ->method('write')
@@ -537,9 +537,9 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new Heartbeat,
-                $message = $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new Heartbeat),
+                Maybe::just($message = $this->createMock(Message::class)),
             ));
         $socket
             ->method('write')
@@ -587,8 +587,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new ConnectionClose,
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new ConnectionClose),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -633,62 +633,6 @@ class UnixTest extends TestCase
         }
     }
 
-    public function testWrapStreamExceptionWhenErrorAtWait()
-    {
-        $timeout = new Timeout(1000);
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($timeout)
-            ->willReturn(Select::timeoutAfter($timeout));
-        $resource = \tmpfile();
-        $socket
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource);
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('decode')
-            ->with($socket)
-            ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->throwException($this->createMock(StreamException::class)),
-            ));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $socket
-            ->method('write')
-            ->with(Str::of('start-ok'))
-            ->willReturn(Either::right($socket));
-
-        $process = Unix::of(
-            $sockets,
-            $protocol,
-            $this->createMock(Clock::class),
-            $address,
-            $name = new Name('foo'),
-            $timeout,
-        )->match(
-            static fn($process) => $process,
-            static fn() => null,
-        );
-
-        $this->expectException(RuntimeException::class);
-
-        $process->wait();
-    }
-
     public function testWrapSocketExceptionWhenErrorAtWait()
     {
         $timeout = new Timeout(1000);
@@ -715,8 +659,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->throwException($this->createMock(SocketException::class)),
+                Maybe::just(new ConnectionStart),
+                Maybe::nothing(),
             ));
         $protocol
             ->expects($this->once())
@@ -771,8 +715,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new ConnectionCloseOk,
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new ConnectionCloseOk),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -832,8 +776,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just($this->createMock(Message::class)),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -966,7 +910,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')

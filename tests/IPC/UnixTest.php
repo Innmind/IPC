@@ -179,7 +179,7 @@ class UnixTest extends TestCase
         $protocol
             ->expects($this->once())
             ->method('decode')
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
 
         $foo = $ipc->get(new Name('foo'))->match(
             static fn($foo) => $foo,
@@ -269,7 +269,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')

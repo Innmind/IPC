@@ -4,14 +4,17 @@ declare(strict_types = 1);
 namespace Innmind\IPC;
 
 use Innmind\Stream\Readable;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Maybe,
+};
 
 interface Protocol
 {
     public function encode(Message $message): Str;
 
     /**
-     * @throws Exception\NoMessage When the connection is closed
+     * @return Maybe<Message>
      */
-    public function decode(Readable $stream): Message;
+    public function decode(Readable $stream): Maybe;
 }

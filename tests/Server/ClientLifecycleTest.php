@@ -14,7 +14,6 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\MessageReceived,
     Message\Heartbeat,
-    Exception\NoMessage,
     Exception\MessageNotSent,
 };
 use Innmind\Socket\{
@@ -32,6 +31,7 @@ use Innmind\Immutable\{
     Str,
     Either,
     SideEffect,
+    Maybe,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -262,7 +262,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->will($this->throwException(new NoMessage));
+            ->willReturn(Maybe::nothing());
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -298,7 +298,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->willReturn($this->createMock(Message::class));
+            ->willReturn(Maybe::just($this->createMock(Message::class)));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -334,7 +334,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->willReturn(new Heartbeat);
+            ->willReturn(Maybe::just(new Heartbeat));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -373,7 +373,10 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(2))
             ->method('decode')
             ->with($connection)
-            ->will($this->onConsecutiveCalls(new ConnectionStartOk, new ConnectionClose));
+            ->will($this->onConsecutiveCalls(
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just(new ConnectionClose),
+            ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -424,9 +427,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $message = $this->createMock(Message::class),
-                $message,
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($message = $this->createMock(Message::class)),
+                Maybe::just($message),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -481,9 +484,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $this->createMock(Message::class),
-                $this->createMock(Message::class),
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($this->createMock(Message::class)),
+                Maybe::just($this->createMock(Message::class)),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -540,9 +543,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $this->createMock(Message::class),
-                new ConnectionCloseOk,
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($this->createMock(Message::class)),
+                Maybe::just(new ConnectionCloseOk),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -600,9 +603,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $this->createMock(Message::class),
-                new ConnectionCloseOk,
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($this->createMock(Message::class)),
+                Maybe::just(new ConnectionCloseOk),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -656,9 +659,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $this->createMock(Message::class),
-                new ConnectionCloseOk,
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($this->createMock(Message::class)),
+                Maybe::just(new ConnectionCloseOk),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -703,9 +706,9 @@ class ClientLifecycleTest extends TestCase
             ->method('decode')
             ->with($connection)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStartOk,
-                $this->createMock(Message::class),
-                $message,
+                Maybe::just(new ConnectionStartOk),
+                Maybe::just($this->createMock(Message::class)),
+                Maybe::just($message),
             ));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
@@ -748,7 +751,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
+            ->willReturn(Maybe::just(new ConnectionCloseOk));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -790,7 +793,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
+            ->willReturn(Maybe::just(new ConnectionCloseOk));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;
@@ -832,7 +835,7 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($connection)
-            ->willReturn(new ConnectionCloseOk);
+            ->willReturn(Maybe::just(new ConnectionCloseOk));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
         $called = false;

@@ -177,12 +177,13 @@ final class ClientLifecycle
 
     private function read(): Message
     {
-        try {
-            return $this->protocol->decode($this->connection);
-        } catch (NoMessage $e) {
-            $this->garbage = true;
+        return $this->protocol->decode($this->connection)->match(
+            static fn($message) => $message,
+            function() {
+                $this->garbage = true;
 
-            throw $e;
-        }
+                throw new NoMessage;
+            },
+        );
     }
 }

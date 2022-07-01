@@ -7,12 +7,13 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Exception\MessageContentTooLong,
-    Exception\NoMessage,
-    Exception\InvalidMessage,
 };
 use Innmind\Stream\Readable;
 use Innmind\MediaType\MediaType;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Maybe,
+};
 
 final class Binary implements Protocol
 {
@@ -34,48 +35,55 @@ final class Binary implements Protocol
         );
     }
 
-    public function decode(Readable $stream): Message
+    public function decode(Readable $stream): Maybe
     {
-        $length = $stream->read(2)->match(
-            static fn($length) => $length,
-            static fn() => throw new NoMessage,
-        );
+        /** @var Maybe<Message> */
+        return $stream
+            ->read(2)
+            ->filter(static fn($length) => !$length->empty())
+            ->map(static function($length): int {
+                /** @var positive-int $mediaTypeLength */
+                [, $mediaTypeLength] = \unpack('n', $length->toString());
 
-        if ($length->empty()) {
-            throw new NoMessage;
-        }
+                return $mediaTypeLength;
+            })
+            ->flatMap(static fn($mediaTypeLength) => $stream->read($mediaTypeLength))
+            ->map(static fn($mediaType) => $mediaType->toString())
+            ->flatMap(static function($mediaType) use ($stream) {
+                return $stream
+                    ->read(4)
+                    ->map(static function($length): int {
+                        /** @var positive-int $contentLength */
+                        [, $contentLength] = \unpack('N', $length->toString());
 
-        /** @var positive-int $mediaTypeLength */
-        [, $mediaTypeLength] = \unpack('n', $length->toString());
-        $mediaType = $stream->read($mediaTypeLength)->match(
-            static fn($mediaType) => $mediaType,
-            static fn() => throw new InvalidMessage,
-        );
-        /** @var positive-int $contentLength */
-        [, $contentLength] = \unpack('N', $stream->read(4)->match(
-            static fn($contentLength) => $contentLength->toString(),
-            static fn() => throw new InvalidMessage,
-        ));
-        $content = $stream->read($contentLength)->match(
-            static fn($content) => $content,
-            static fn() => throw new InvalidMessage,
-        );
-        [, $end] = \unpack('C', $stream->read(1)->match(
-            static fn($end) => $end->toString(),
-            static fn() => throw new InvalidMessage,
-        ));
+                        return $contentLength;
+                    })
+                    ->flatMap(static fn($contentLength) => $stream->read($contentLength)->map(
+                        static fn($content) => [$mediaType, $contentLength, $content],
+                    ));
+            })
+            ->flatMap(
+                // verify the message end boundary is correct
+                fn($parsed) => $stream
+                    ->read(1)
+                    ->map(static function($end): mixed {
+                        [, $end] = \unpack('C', $end->toString());
 
-        if (
-            $content->toEncoding('ASCII')->length() !== $contentLength ||
-            $end !== $this->end()
-        ) {
-            throw new InvalidMessage($content->toString());
-        }
-
-        return new Message\Generic(
-            MediaType::of($mediaType->toString()),
-            $content,
-        );
+                        return $end;
+                    })
+                    ->filter(fn($end) => $end === $this->end())
+                    ->map(static fn() => $parsed),
+            )
+            // verify the read content is of the length specified
+            ->filter(static fn($parsed) => $parsed[1] === $parsed[2]->toEncoding('ASCII')->length())
+            ->flatMap(
+                static fn($parsed) => MediaType::maybe($parsed[0])->map(
+                    static fn($mediaType) => new Message\Generic(
+                        $mediaType,
+                        $parsed[2],
+                    ),
+                ),
+            );
     }
 
     private function end(): int

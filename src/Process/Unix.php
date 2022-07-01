@@ -17,6 +17,7 @@ use Innmind\IPC\{
     Exception\InvalidConnectionClose,
     Exception\RuntimeException,
     Exception\MessageNotSent,
+    Exception\NoMessage,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -130,11 +131,10 @@ final class Unix implements Process
 
         $this->lastReceivedData = $this->clock->now();
 
-        try {
-            $message = $this->protocol->decode($this->socket);
-        } catch (Stream | Socket $e) {
-            throw new RuntimeException('', 0, $e);
-        }
+        $message = $this->protocol->decode($this->socket)->match(
+            static fn($message) => $message,
+            static fn() => throw new NoMessage,
+        );
 
         if ($message->equals(new Heartbeat)) {
             return $this->wait($timeout);
