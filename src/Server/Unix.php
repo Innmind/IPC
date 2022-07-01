@@ -23,7 +23,6 @@ use Innmind\Socket\{
 use Innmind\Stream\{
     Watch,
     Exception\Exception as Stream,
-    Exception\SelectFailed,
 };
 use Innmind\TimeContinuum\{
     Clock,
@@ -70,7 +69,7 @@ final class Unix implements Server
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
         /** @var Map<Connection, ClientLifecycle> */
-        $this->connections = Map::of(Connection::class, ClientLifecycle::class);
+        $this->connections = Map::of();
         $this->shutdown = function(): void {
             $this->startShutdown();
         };
@@ -99,20 +98,27 @@ final class Unix implements Server
 
     private function loop(callable $listen): void
     {
-        $server = $this->sockets->open($this->address);
+        $server = $this->sockets->open($this->address)->match(
+            static fn($server) => $server,
+            static fn() => throw new RuntimeException,
+        );
+        /** @psalm-suppress InvalidArgument TODO FIX */
         $watch = $this->sockets->watch($this->heartbeat)->forRead($server);
 
         do {
-            try {
-                $ready = $watch();
-            } catch (SelectFailed $e) {
+            $ready = $watch()->match(
+                static fn($ready) => $ready,
+                static fn() => null,
+            );
+
+            if (\is_null($ready)) {
                 if ($this->shuttingDown) {
                     $this->emergencyShutdown($server);
 
                     return;
                 }
 
-                throw $e;
+                throw new RuntimeException;
             }
 
             try {
@@ -121,7 +127,10 @@ final class Unix implements Server
                 }
 
                 if ($ready->toRead()->contains($server) && !$this->shuttingDown) {
-                    $connection = $server->accept();
+                    $connection = $server->accept()->match(
+                        static fn($connection) => $connection,
+                        static fn() => throw new \LogicException,
+                    );
                     $watch = $watch->forRead($connection);
                     $this->connections = ($this->connections)(
                         $connection,
@@ -142,7 +151,10 @@ final class Unix implements Server
                 $watch = $sockets->reduce(
                     $watch,
                     function(Watch $watch, Connection $connection) use ($listen): Watch {
-                        $lifecycle = $this->connections->get($connection);
+                        $lifecycle = $this->connections->get($connection)->match(
+                            static fn($lifecycle) => $lifecycle,
+                            static fn() => throw new \LogicException,
+                        );
                         $lifecycle->notify($listen);
 
                         if ($lifecycle->toBeGarbageCollected()) {
@@ -189,7 +201,7 @@ final class Unix implements Server
         }
 
         $this->shuttingDown = true;
-        $this
+        $_ = $this
             ->connections
             ->values()
             ->foreach(static function(ClientLifecycle $client): void {
@@ -212,7 +224,7 @@ final class Unix implements Server
 
     private function emergencyShutdown(ServerSocket $server): void
     {
-        $this->connections->foreach(static function(Connection $connection): void {
+        $_ = $this->connections->foreach(static function(Connection $connection): void {
             $connection->close();
         });
         $server->close();
@@ -223,7 +235,7 @@ final class Unix implements Server
      */
     private function heartbeat(Set $activeSockets): void
     {
-        $this
+        $_ = $this
             ->connections
             ->filter(static function(Connection $connection) use ($activeSockets): bool {
                 return !$activeSockets->contains($connection);
@@ -240,12 +252,12 @@ final class Unix implements Server
             return;
         }
 
-        $this->signals->listen(Signal::hangup(), $this->shutdown);
-        $this->signals->listen(Signal::interrupt(), $this->shutdown);
-        $this->signals->listen(Signal::abort(), $this->shutdown);
-        $this->signals->listen(Signal::terminate(), $this->shutdown);
-        $this->signals->listen(Signal::terminalStop(), $this->shutdown);
-        $this->signals->listen(Signal::alarm(), $this->shutdown);
+        $this->signals->listen(Signal::hangup, $this->shutdown);
+        $this->signals->listen(Signal::interrupt, $this->shutdown);
+        $this->signals->listen(Signal::abort, $this->shutdown);
+        $this->signals->listen(Signal::terminate, $this->shutdown);
+        $this->signals->listen(Signal::terminalStop, $this->shutdown);
+        $this->signals->listen(Signal::alarm, $this->shutdown);
         $this->signalsRegistered = true;
     }
 

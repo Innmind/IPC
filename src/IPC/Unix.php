@@ -65,10 +65,7 @@ final class Unix implements IPC
         return $this
             ->filesystem
             ->all()
-            ->mapTo(
-                Process\Name::class,
-                static fn(File $file): Process\Name => new Process\Name($file->name()->toString()),
-            );
+            ->map(static fn($file) => new Process\Name($file->name()->toString()));
     }
 
     public function get(Process\Name $name): Process

@@ -36,19 +36,34 @@ final class Binary implements Protocol
 
     public function decode(Readable $stream): Message
     {
-        $length = $stream->read(2);
+        $length = $stream->read(2)->match(
+            static fn($length) => $length,
+            static fn() => throw new NoMessage,
+        );
 
         if ($length->empty()) {
             throw new NoMessage;
         }
 
-        /** @var int $mediaTypeLength */
+        /** @var positive-int $mediaTypeLength */
         [, $mediaTypeLength] = \unpack('n', $length->toString());
-        $mediaType = $stream->read($mediaTypeLength);
-        /** @var int $contentLength */
-        [, $contentLength] = \unpack('N', $stream->read(4)->toString());
-        $content = $stream->read($contentLength);
-        [, $end] = \unpack('C', $stream->read(1)->toString());
+        $mediaType = $stream->read($mediaTypeLength)->match(
+            static fn($mediaType) => $mediaType,
+            static fn() => throw new InvalidMessage,
+        );
+        /** @var positive-int $contentLength */
+        [, $contentLength] = \unpack('N', $stream->read(4)->match(
+            static fn($contentLength) => $contentLength->toString(),
+            static fn() => throw new InvalidMessage,
+        ));
+        $content = $stream->read($contentLength)->match(
+            static fn($content) => $content,
+            static fn() => throw new InvalidMessage,
+        );
+        [, $end] = \unpack('C', $stream->read(1)->match(
+            static fn($end) => $end->toString(),
+            static fn() => throw new InvalidMessage,
+        ));
 
         if (
             $content->toEncoding('ASCII')->length() !== $contentLength ||

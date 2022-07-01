@@ -119,7 +119,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('watch')
             ->with($heartbeat)
-            ->willReturn(new Select($heartbeat));
+            ->willReturn(Select::timeoutAfter($heartbeat));
         $clock
             ->expects($this->exactly(3))
             ->method('now')
@@ -192,12 +192,12 @@ class UnixTest extends TestCase
             ->expects($this->exactly(6))
             ->method('listen')
             ->withConsecutive(
-                [Signal::hangup(), $callback],
-                [Signal::interrupt(), $callback],
-                [Signal::abort(), $callback],
-                [Signal::terminate(), $callback],
-                [Signal::terminalStop(), $callback],
-                [Signal::alarm(), $callback],
+                [Signal::hangup, $callback],
+                [Signal::interrupt, $callback],
+                [Signal::abort, $callback],
+                [Signal::terminate, $callback],
+                [Signal::terminalStop, $callback],
+                [Signal::alarm, $callback],
             );
 
         try {
@@ -225,7 +225,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php'),
+                ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -250,7 +251,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php'),
+                ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -275,7 +277,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php'),
+                ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -300,7 +303,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/long-client.php'),
+                ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(

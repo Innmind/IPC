@@ -53,11 +53,10 @@ final class Unix implements Process
         Name $name,
         ElapsedPeriod $watchTimeout,
     ) {
-        try {
-            $this->socket = $sockets->connectTo($address);
-        } catch (Stream | Socket $e) {
-            throw new FailedToConnect($name->toString(), 0, $e);
-        }
+        $this->socket = $sockets->connectTo($address)->match(
+            static fn($socket) => $socket,
+            static fn() => throw new FailedToConnect($name->toString()),
+        );
 
         $this->watch = $sockets->watch($watchTimeout)->forRead($this->socket);
         $this->protocol = $protocol;
@@ -98,11 +97,10 @@ final class Unix implements Process
                 throw new ConnectionClosed;
             }
 
-            try {
-                $ready = ($this->watch)();
-            } catch (Stream | Socket $e) {
-                throw new RuntimeException('', 0, $e);
-            }
+            $ready = ($this->watch)()->match(
+                static fn($ready) => $ready,
+                static fn() => throw new RuntimeException,
+            );
 
             $receivedData = $ready->toRead()->contains($this->socket);
 

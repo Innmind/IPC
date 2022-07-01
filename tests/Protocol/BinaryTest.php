@@ -50,7 +50,10 @@ class BinaryTest extends TestCase
         $this->assertInstanceOf(Message::class, $message);
         $this->assertSame('application/json', $message->mediaType()->toString());
         $this->assertSame('{"foo":"bar🙏"}', $message->content()->toString());
-        $this->assertSame('baz', $stream->read(3)->toString()); // to verify the protocol didn't read that part
+        $this->assertSame('baz', $stream->read(3)->match(
+            static fn($chunk) => $chunk->toString(),
+            static fn() => null,
+        )); // to verify the protocol didn't read that part
     }
 
     public function testThrowWhenEmptyStream()

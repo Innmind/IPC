@@ -18,7 +18,10 @@ use Innmind\Socket\{
 };
 use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\MediaType\MediaType;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Either,
+};
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -44,7 +47,8 @@ class UnixTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('watev'));
+            ->with(Str::of('watev'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -64,7 +68,8 @@ class UnixTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('watev'));
+            ->with(Str::of('watev'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -86,7 +91,8 @@ class UnixTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('watev'));
+            ->with(Str::of('watev'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -107,7 +113,8 @@ class UnixTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('watev'));
+            ->with(Str::of('watev'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')

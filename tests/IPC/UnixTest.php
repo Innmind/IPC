@@ -33,11 +33,11 @@ use Innmind\TimeContinuum\{
 use Innmind\Socket\Client;
 use Innmind\Stream\Watch\Select;
 use Innmind\Immutable\{
-    Map,
     Set,
     Str,
+    Maybe,
+    Either,
 };
-use function Innmind\Immutable\unwrap;
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -90,7 +90,6 @@ class UnixTest extends TestCase
             ->method('all')
             ->willReturn(
                 Set::of(
-                    File::class,
                     $foo = $this->createMock(File::class),
                     $bar = $this->createMock(File::class),
                 ),
@@ -105,9 +104,8 @@ class UnixTest extends TestCase
         $processes = $ipc->processes();
 
         $this->assertInstanceOf(Set::class, $processes);
-        $this->assertSame(Process\Name::class, (string) $processes->type());
         $this->assertCount(2, $processes);
-        $processes = unwrap($processes);
+        $processes = $processes->toList();
 
         $foo = \current($processes);
         $this->assertSame('foo', $foo->toString());
@@ -157,17 +155,21 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->once())
             ->method('connectTo')
-            ->willReturn($client = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($client = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($heartbeat)
-            ->willReturn(new Select($heartbeat));
+            ->willReturn(Select::timeoutAfter($heartbeat));
         $resource = \tmpfile();
         $client
             ->expects($this->any())
             ->method('resource')
             ->willReturn($resource);
+        $client
+            ->expects($this->any())
+            ->method('write')
+            ->willReturn(Either::right($client));
         $protocol
             ->expects($this->once())
             ->method('encode')

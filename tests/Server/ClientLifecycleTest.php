@@ -28,7 +28,11 @@ use Innmind\TimeContinuum\{
     PointInTime,
 };
 use Innmind\Stream\Exception\Exception as StreamException;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Either,
+    SideEffect,
+};
 use PHPUnit\Framework\TestCase;
 
 class ClientLifecycleTest extends TestCase
@@ -51,7 +55,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start'));
+            ->with(Str::of('start'))
+            ->willReturn(Either::right($connection));
 
         $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
 
@@ -71,7 +76,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start'));
+            ->with(Str::of('start'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -116,7 +122,7 @@ class ClientLifecycleTest extends TestCase
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('close')])
             ->will($this->onConsecutiveCalls(
-                null,
+                $this->returnValue(Either::right($connection)),
                 $this->throwException(new MessageNotSent),
             ));
         $protocol
@@ -150,7 +156,7 @@ class ClientLifecycleTest extends TestCase
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
             ->will($this->onConsecutiveCalls(
-                null,
+                $this->returnValue(Either::right($connection)),
                 $this->throwException(new MessageNotSent),
             ));
         $protocol
@@ -198,7 +204,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')]);
+            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -244,7 +251,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start'));
+            ->with(Str::of('start'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -279,7 +287,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start'));
+            ->with(Str::of('start'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -314,7 +323,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start'));
+            ->with(Str::of('start'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -349,7 +359,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close-ok')]);
+            ->withConsecutive([Str::of('start')], [Str::of('close-ok')])
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close');
@@ -393,7 +404,8 @@ class ClientLifecycleTest extends TestCase
                 [Str::of('start')],
                 [Str::of('received')],
                 [Str::of('received')],
-            );
+            )
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->exactly(3))
             ->method('encode')
@@ -449,7 +461,8 @@ class ClientLifecycleTest extends TestCase
                 [Str::of('start')],
                 [Str::of('received')],
                 [Str::of('close')],
-            );
+            )
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->exactly(3))
             ->method('encode')
@@ -504,7 +517,8 @@ class ClientLifecycleTest extends TestCase
                 [Str::of('start')],
                 [Str::of('received')],
                 [Str::of('close')],
-            );
+            )
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close');
@@ -562,7 +576,8 @@ class ClientLifecycleTest extends TestCase
                 [Str::of('start')],
                 [Str::of('received')],
                 [Str::of('close')],
-            );
+            )
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close')
@@ -621,7 +636,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->atLeast(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('received')]);
+            ->withConsecutive([Str::of('start')], [Str::of('received')])
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->exactly(3))
             ->method('encode')
@@ -675,7 +691,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('received')]);
+            ->withConsecutive([Str::of('start')], [Str::of('received')])
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -717,7 +734,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start')], [Str::of('close')])
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close');
@@ -757,7 +775,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start')], [Str::of('close')])
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close')
@@ -798,7 +817,8 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start')], [Str::of('close')])
+            ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
             ->method('close')
@@ -841,7 +861,7 @@ class ClientLifecycleTest extends TestCase
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('close')])
             ->will($this->onConsecutiveCalls(
-                null,
+                $this->returnValue(Either::right($connection)),
                 $this->throwException(new MessageNotSent),
             ));
         $protocol

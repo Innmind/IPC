@@ -20,13 +20,14 @@ class FunctionalTest extends TestCase
         $processes = $os->control()->processes();
         $processes->execute(
             Command::background('php')
-                ->withArgument('fixtures/server.php'),
+                ->withArgument('fixtures/server.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
-        $process = $processes
-            ->execute(
-                Command::foreground('php')
-                    ->withArgument('fixtures/client.php'),
-            );
+        $process = $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+        );
         $process->wait();
         $output = $process->output()->toString();
 
@@ -44,13 +45,22 @@ class FunctionalTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/eternal-server.php'),
+                ->withArgument('fixtures/eternal-server.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
         $os->process()->halt(new Second(1));
-        $processes->kill($server->pid(), Signal::interrupt());
-        $server->wait();
+        $processes->kill(
+            $server->pid()->match(
+                static fn($pid) => $pid,
+                static fn() => null,
+            ),
+            Signal::interrupt,
+        );
+        $this->assertTrue($server->wait()->match(
+            static fn() => true,
+            static fn() => false,
+        ));
 
-        $this->assertTrue($server->exitCode()->isSuccessful());
         $this->assertFalse(\file_exists($os->status()->tmp()->toString().'/innmind/ipc/server.sock'));
     }
 }

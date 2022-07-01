@@ -43,7 +43,12 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     Earth\ElapsedPeriod as Timeout
 };
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Maybe,
+    Either,
+    SideEffect,
+};
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -58,12 +63,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -81,7 +86,8 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -106,12 +112,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -124,7 +130,8 @@ class UnixTest extends TestCase
             ->willReturn($this->createMock(Message::class));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $this->expectException(FailedToConnect::class);
         $this->expectExceptionMessage('foo');
@@ -151,12 +158,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -180,7 +187,8 @@ class UnixTest extends TestCase
             ->withConsecutive(
                 [Str::of('start-ok')],
                 [Str::of('message-to-send')],
-            );
+            )
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -206,12 +214,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -232,7 +240,8 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -260,12 +269,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -286,7 +295,8 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -312,12 +322,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -336,7 +346,8 @@ class UnixTest extends TestCase
         $socket
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
         $socket
             ->expects($this->exactly(3))
             ->method('closed')
@@ -368,12 +379,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -391,7 +402,8 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
         $socket
             ->method('closed')
             ->will($this->onConsecutiveCalls(
@@ -399,6 +411,9 @@ class UnixTest extends TestCase
                 false,
                 true,
             ));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
         $process = new Unix(
             $sockets,
@@ -428,12 +443,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -454,7 +469,8 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -478,12 +494,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -505,7 +521,8 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -529,12 +546,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -564,7 +581,11 @@ class UnixTest extends TestCase
             ->withConsecutive(
                 [Str::of('start-ok')],
                 [Str::of('close-ok')],
-            );
+            )
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
         $process = new Unix(
             $sockets,
@@ -594,12 +615,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -620,7 +641,8 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -646,12 +668,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -672,7 +694,8 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
@@ -698,12 +721,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -727,7 +750,11 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
         $process = new Unix(
             $sockets,
@@ -752,12 +779,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -781,7 +808,11 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
         $process = new Unix(
             $sockets,
@@ -808,7 +839,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $server = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/eternal-server.php'),
+                ->withArgument('fixtures/eternal-server.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         \sleep(1);
@@ -827,7 +859,13 @@ class UnixTest extends TestCase
 
             $this->fail('it should throw');
         } catch (Timedout $e) {
-            $processes->kill($server->pid(), Signal::terminate());
+            $processes->kill(
+                $server->pid()->match(
+                    static fn($pid) => $pid,
+                    static fn() => null,
+                ),
+                Signal::terminate,
+            );
             $this->assertTrue(true);
         }
     }
@@ -841,7 +879,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+            ->willReturn(Maybe::nothing());
 
         try {
             new Unix(
@@ -854,8 +892,8 @@ class UnixTest extends TestCase
             );
 
             $this->fail('it should throw');
-        } catch (FailedToConnect $e) {
-            $this->assertSame($expected, $e->getPrevious());
+        } catch (\Throwable $e) {
+            $this->assertInstanceOf(FailedToConnect::class, $e);
         }
     }
 
@@ -868,7 +906,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+            ->willReturn(Maybe::nothing());
 
         try {
             new Unix(
@@ -881,8 +919,8 @@ class UnixTest extends TestCase
             );
 
             $this->fail('it should throw');
-        } catch (FailedToConnect $e) {
-            $this->assertSame($expected, $e->getPrevious());
+        } catch (\Throwable $e) {
+            $this->assertInstanceOf(FailedToConnect::class, $e);
         }
     }
 
@@ -898,12 +936,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -930,7 +968,8 @@ class UnixTest extends TestCase
                 }
 
                 return true;
-            }));
+            }))
+            ->willReturn(Either::right($socket));
 
         $process = new Unix(
             $sockets,
