@@ -93,24 +93,23 @@ final class Unix implements IPC
         return $this->filesystem->contains(new FileName("{$name->toString()}.sock"));
     }
 
-    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): void
+    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe
     {
         $start = $this->clock->now();
 
-        do {
-            if ($this->exist($name)) {
-                return;
-            }
-
+        while (!$this->exist($name)) {
             if (
                 $timeout instanceof ElapsedPeriod &&
                 $this->clock->now()->elapsedSince($start)->longerThan($timeout)
             ) {
-                return;
+                /** @var Maybe<Process> */
+                return Maybe::nothing();
             }
 
             $this->process->halt(new Millisecond($this->heartbeat->milliseconds()));
-        } while (true);
+        }
+
+        return $this->get($name);
     }
 
     public function listen(Process\Name $self, ElapsedPeriod $timeout = null): Server

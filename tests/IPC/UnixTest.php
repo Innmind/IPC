@@ -11,6 +11,7 @@ use Innmind\IPC\{
     Process,
     Process\Name,
     Message\ConnectionStart,
+    Message\ConnectionStartOk,
     Exception\LogicException,
 };
 use Innmind\OperatingSystem\{
@@ -233,25 +234,56 @@ class UnixTest extends TestCase
     public function testWait()
     {
         $ipc = new Unix(
-            $this->createMock(Sockets::class),
+            $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(Clock::class),
             $process = $this->createMock(CurrentProcess::class),
-            $this->createMock(Protocol::class),
+            $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000),
+            $timeout = new Timeout(1000),
         );
         $filesystem
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(4))
             ->method('contains')
             ->with(new FileName('foo.sock'))
-            ->will($this->onConsecutiveCalls(false, false, true));
+            ->will($this->onConsecutiveCalls(false, false, true, true));
         $process
             ->expects($this->exactly(2))
             ->method('halt')
             ->with(new Millisecond(1000));
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+        $sockets
+            ->expects($this->once())
+            ->method('watch')
+            ->with($timeout)
+            ->willReturn(Select::timeoutAfter($timeout));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->once())
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(new ConnectionStart);
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $this->assertNull($ipc->wait(new Name('foo')));
+        $this->assertInstanceOf(Process::class, $ipc->wait(new Name('foo'))->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 
     public function testStopWaitingWhenTimeoutExceeded()
@@ -303,6 +335,9 @@ class UnixTest extends TestCase
             ->with($timeout)
             ->willReturn(true);
 
-        $this->assertNull($ipc->wait(new Name('foo'), $timeout));
+        $this->assertNull($ipc->wait(new Name('foo'), $timeout)->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 }
