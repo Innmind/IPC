@@ -102,10 +102,10 @@ final class Unix implements Process
     {
         do {
             if ($this->closed()) {
-                $this->cut();
-
                 /** @var Maybe<Message> */
-                return Maybe::nothing();
+                return $this
+                    ->cut()
+                    ->filter(static fn() => false); // never return anything
             }
 
             /** @var Set<Selectable> */
@@ -146,11 +146,11 @@ final class Unix implements Process
             })
             ->flatMap(function($message) {
                 if ($message->equals(new ConnectionClose)) {
-                    $this->sendMessage(new ConnectionCloseOk);
-                    $this->cut();
-
                     /** @var Maybe<Message> */
-                    return Maybe::nothing();
+                    return $this
+                        ->sendMessage(new ConnectionCloseOk)
+                        ->flatMap(static fn($self) => $self->cut())
+                        ->filter(static fn() => false); // never return anything
                 }
 
                 return Maybe::just($message);
@@ -163,16 +163,20 @@ final class Unix implements Process
             return Maybe::just(new SideEffect);
         }
 
-        $this->sendMessage(new ConnectionClose);
-
-        try {
-            return $this
-                ->wait()
-                ->filter(static fn($message) => $message->equals(new ConnectionCloseOk))
-                ->map(static fn() => new SideEffect);
-        } finally {
-            $this->cut();
-        }
+        return $this
+            ->sendMessage(new ConnectionClose)
+            ->flatMap(
+                static fn($self) => $self
+                    ->wait()
+                    ->filter(static fn($message) => $message->equals(new ConnectionCloseOk))
+                    ->map(static fn() => $self),
+            )
+            ->flatMap(static fn($self) => $self->cut())
+            ->otherwise(
+                fn() => $this
+                    ->cut()
+                    ->filter(static fn() => false), // never return anything
+            );
     }
 
     public function closed(): bool
@@ -189,14 +193,21 @@ final class Unix implements Process
         return $this
             ->wait()
             ->filter(static fn($message) => $message->equals(new ConnectionStart))
-            ->map(fn() => $this->sendMessage(new ConnectionStartOk))
-            ->map(fn() => $this);
+            ->flatMap(fn() => $this->sendMessage(new ConnectionStartOk));
     }
 
-    private function cut(): void
+    /**
+     * @return Maybe<SideEffect>
+     */
+    private function cut(): Maybe
     {
         $this->closed = true;
-        $this->socket->close();
+
+        /** @var Maybe<SideEffect> */
+        return $this->socket->close()->match(
+            static fn() => Maybe::just(new SideEffect),
+            static fn() => Maybe::nothing(),
+        );
     }
 
     private function timedout(ElapsedPeriod $timeout = null): bool
