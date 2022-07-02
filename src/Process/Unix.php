@@ -13,7 +13,6 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\Heartbeat,
     Message\MessageReceived,
-    Exception\Timedout,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -123,8 +122,18 @@ final class Unix implements Process
             $receivedData = $toRead->contains($this->socket);
 
             if (!$receivedData) {
-                $this->sendMessage(new Heartbeat);
-                $this->timeout($timeout);
+                $stop = $this
+                    ->sendMessage(new Heartbeat)
+                    ->filter(fn($self) => !$self->timedout($timeout))
+                    ->match(
+                        static fn() => false,
+                        static fn() => true,
+                    );
+
+                if ($stop) {
+                    /** @var Maybe<Message> */
+                    return Maybe::nothing();
+                }
             }
         } while (!$receivedData);
 
@@ -195,17 +204,15 @@ final class Unix implements Process
         $this->socket->close();
     }
 
-    private function timeout(ElapsedPeriod $timeout = null): void
+    private function timedout(ElapsedPeriod $timeout = null): bool
     {
         if ($timeout === null) {
-            return;
+            return false;
         }
 
         $iteration = $this->clock->now()->elapsedSince($this->lastReceivedData);
 
-        if ($iteration->longerThan($timeout)) {
-            throw new Timedout;
-        }
+        return $iteration->longerThan($timeout);
     }
 
     /**

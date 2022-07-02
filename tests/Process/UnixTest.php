@@ -800,10 +800,11 @@ class UnixTest extends TestCase
         );
 
         try {
-            $process->wait(new Timeout(100));
-
-            $this->fail('it should throw');
-        } catch (Timedout $e) {
+            $this->assertNull($process->wait(new Timeout(100))->match(
+                static fn($message) => $message,
+                static fn() => null,
+            ));
+        } finally {
             $processes->kill(
                 $server->pid()->match(
                     static fn($pid) => $pid,
@@ -811,7 +812,6 @@ class UnixTest extends TestCase
                 ),
                 Signal::terminate,
             );
-            $this->assertTrue(true);
         }
     }
 
