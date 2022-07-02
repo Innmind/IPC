@@ -15,7 +15,6 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\Heartbeat,
     Message\MessageReceived,
-    Exception\Timedout,
 };
 use Innmind\OperatingSystem\{
     Factory,
