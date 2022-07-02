@@ -124,7 +124,7 @@ final class Unix implements Process
             if (!$receivedData) {
                 $stop = $this
                     ->sendMessage(new Heartbeat)
-                    ->filter(fn($self) => !$self->timedout($timeout))
+                    ->filter(static fn($self) => !$self->timedout($timeout))
                     ->match(
                         static fn() => false,
                         static fn() => true,
