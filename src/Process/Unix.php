@@ -203,11 +203,7 @@ final class Unix implements Process
     {
         $this->closed = true;
 
-        /** @var Maybe<SideEffect> */
-        return $this->socket->close()->match(
-            static fn() => Maybe::just(new SideEffect),
-            static fn() => Maybe::nothing(),
-        );
+        return $this->socket->close()->maybe();
     }
 
     private function timedout(ElapsedPeriod $timeout = null): bool
@@ -235,10 +231,8 @@ final class Unix implements Process
         return $this
             ->socket
             ->write($this->protocol->encode($message))
-            ->match(
-                fn() => Maybe::just($this),
-                static fn() => Maybe::nothing(),
-            );
+            ->maybe()
+            ->map(fn() => $this);
     }
 
     /**
