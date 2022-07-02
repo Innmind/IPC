@@ -18,12 +18,10 @@ use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
-    Exception\Exception as Socket,
 };
 use Innmind\Stream\{
     Watch,
     Selectable,
-    Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
     Clock,
