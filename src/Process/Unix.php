@@ -89,13 +89,10 @@ final class Unix implements Process
         return $this->name;
     }
 
-    /**
-     * @no-named-arguments
-     */
-    public function send(Message ...$messages): Maybe
+    public function send(Sequence $messages): Maybe
     {
         /** @var Maybe<Process> */
-        return Sequence::of(...$messages)->reduce(
+        return $messages->reduce(
             Maybe::just($this),
             self::maybeSendMessage(...),
         );

@@ -11,6 +11,7 @@ use Innmind\MediaType\MediaType;
 use Innmind\Immutable\{
     Str,
     Maybe,
+    Sequence,
 };
 
 require __DIR__.'/../vendor/autoload.php';
@@ -21,10 +22,10 @@ $process = $ipc->wait(new Name('server'))->match(
     static fn($process) => $process,
     static fn() => null,
 );
-$process->send(new Message\Generic(
+$process->send(Sequence::of(new Message\Generic(
     MediaType::of('text/plain'),
     Str::of('hello world')
-));
+)));
 $_ = $process
     ->wait()
     ->flatMap(

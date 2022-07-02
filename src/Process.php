@@ -7,6 +7,7 @@ use Innmind\TimeContinuum\ElapsedPeriod;
 use Innmind\Immutable\{
     Maybe,
     SideEffect,
+    Sequence,
 };
 
 interface Process
@@ -14,10 +15,11 @@ interface Process
     public function name(): Process\Name;
 
     /**
-     * @no-named-arguments
+     * @param Sequence<Message> $messages
+     *
      * @return Maybe<self> Returns nothing when messages can't be sent
      */
-    public function send(Message ...$messages): Maybe;
+    public function send(Sequence $messages): Maybe;
 
     /**
      * @return Maybe<Message>

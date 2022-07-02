@@ -43,6 +43,7 @@ use Innmind\Immutable\{
     Maybe,
     Either,
     SideEffect,
+    Sequence,
 };
 use PHPUnit\Framework\TestCase;
 
@@ -205,7 +206,7 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->assertSame($process, $process->send($message)->match(
+        $this->assertSame($process, $process->send(Sequence::of($message))->match(
             static fn($process) => $process,
             static fn() => null,
         ));
@@ -270,7 +271,7 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->assertNull($process->send($message)->match(
+        $this->assertNull($process->send(Sequence::of($message))->match(
             static fn($process) => $process,
             static fn() => null,
         ));
@@ -333,7 +334,7 @@ class UnixTest extends TestCase
             static fn() => null,
         );
 
-        $this->assertNull($process->send($this->createMock(Message::class))->match(
+        $this->assertNull($process->send(Sequence::of($this->createMock(Message::class)))->match(
             static fn($process) => $process,
             static fn() => null,
         ));

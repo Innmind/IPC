@@ -8,7 +8,10 @@ use Innmind\IPC\{
 };
 use Innmind\OperatingSystem\Factory;
 use Innmind\MediaType\MediaType;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Sequence,
+};
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -19,10 +22,10 @@ $process = $ipc->wait(new Name('server'))->match(
     static fn() => null,
 );
 $_ = $process
-    ->send(new Message\Generic(
+    ->send(Sequence::of(new Message\Generic(
         MediaType::of('text/plain'),
         Str::of('hello world')
-    ))
+    )))
     ->flatMap(static fn($process) => $process->wait())
     ->match(
         static fn() => null,
