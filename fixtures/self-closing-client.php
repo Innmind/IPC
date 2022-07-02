@@ -18,8 +18,13 @@ $process = $ipc->wait(new Name('server'))->match(
     static fn($process) => $process,
     static fn() => null,
 );
-$process->send(new Message\Generic(
-    MediaType::of('text/plain'),
-    Str::of('hello world')
-));
-$process->close();
+$_ = $process
+    ->send(new Message\Generic(
+        MediaType::of('text/plain'),
+        Str::of('hello world')
+    ))
+    ->flatMap(static fn($process) => $process->close())
+    ->match(
+        static fn() => null,
+        static fn() => null,
+    );
