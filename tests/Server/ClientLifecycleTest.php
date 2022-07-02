@@ -26,7 +26,11 @@ use Innmind\TimeContinuum\{
     Earth\ElapsedPeriod as Timeout,
     PointInTime,
 };
-use Innmind\Stream\Exception\Exception as StreamException;
+use Innmind\Stream\{
+    FailedToWriteToStream,
+    FailedToCloseStream,
+    Exception\Exception as StreamException,
+};
 use Innmind\Immutable\{
     Str,
     Either,
@@ -114,7 +118,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -123,7 +127,7 @@ class ClientLifecycleTest extends TestCase
             ->withConsecutive([Str::of('start')], [Str::of('close')])
             ->will($this->onConsecutiveCalls(
                 $this->returnValue(Either::right($connection)),
-                $this->throwException(new MessageNotSent),
+                $this->returnValue(Either::left(new FailedToWriteToStream)),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -157,7 +161,7 @@ class ClientLifecycleTest extends TestCase
             ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
             ->will($this->onConsecutiveCalls(
                 $this->returnValue(Either::right($connection)),
-                $this->throwException(new MessageNotSent),
+                $this->returnValue(Either::left(new FailedToWriteToStream)),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -454,7 +458,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(4))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -510,7 +514,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(4))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -562,66 +566,6 @@ class ClientLifecycleTest extends TestCase
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
 
-    public function testCloseConfirmationEvenWhenStreamError()
-    {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(3))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of('start')],
-                [Str::of('received')],
-                [Str::of('close')],
-            )
-            ->willReturn(Either::right($connection));
-        $connection
-            ->expects($this->once())
-            ->method('close')
-            ->will($this->throwException($this->createMock(StreamException::class)));
-        $protocol
-            ->expects($this->exactly(3))
-            ->method('encode')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-                [new ConnectionClose],
-            )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('received'),
-                Str::of('close'),
-            ));
-        $protocol
-            ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
-            ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($this->createMock(Message::class)),
-                Maybe::just(new ConnectionCloseOk),
-            ));
-
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
-        $called = 0;
-        $callback = static function($_, $client) use (&$called) {
-            ++$called;
-            $client->close();
-        };
-
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message 1
-        $this->assertNull($lifecycle->notify($callback)); // connection close ok
-        $this->assertSame(1, $called);
-        $this->assertTrue($lifecycle->toBeGarbageCollected());
-    }
-
     public function testCloseConfirmationEvenWhenSocketError()
     {
         $connection = $this->createMock(Connection::class);
@@ -629,13 +573,13 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(4))
             ->method('closed')
             ->willReturn(false);
         $connection
             ->expects($this->once())
             ->method('close')
-            ->will($this->throwException($this->createMock(SocketException::class)));
+            ->willReturn(Either::left(new FailedToCloseStream));
         $connection
             ->expects($this->atLeast(2))
             ->method('write')
@@ -731,7 +675,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -765,48 +709,6 @@ class ClientLifecycleTest extends TestCase
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
 
-    public function testShutdownEvenWhenStreamErrorWhenClosingConnection()
-    {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')])
-            ->willReturn(Either::right($connection));
-        $connection
-            ->expects($this->once())
-            ->method('close')
-            ->will($this->throwException($this->createMock(StreamException::class)));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(Maybe::just(new ConnectionCloseOk));
-
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
-        $called = false;
-
-        $this->assertNull($lifecycle->shutdown());
-        $this->assertFalse($lifecycle->toBeGarbageCollected());
-        $lifecycle->notify(static function() use (&$called) {
-            $called = true;
-        });
-        $this->assertFalse($called);
-        $this->assertTrue($lifecycle->toBeGarbageCollected());
-    }
-
     public function testShutdownEvenWhenSocketErrorWhenClosingConnection()
     {
         $connection = $this->createMock(Connection::class);
@@ -814,7 +716,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -825,7 +727,7 @@ class ClientLifecycleTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('close')
-            ->will($this->throwException($this->createMock(SocketException::class)));
+            ->willReturn(Either::left(new FailedToCloseStream));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -856,7 +758,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(2))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -865,7 +767,7 @@ class ClientLifecycleTest extends TestCase
             ->withConsecutive([Str::of('start')], [Str::of('close')])
             ->will($this->onConsecutiveCalls(
                 $this->returnValue(Either::right($connection)),
-                $this->throwException(new MessageNotSent),
+                $this->returnValue(Either::left(new FailedToWriteToStream)),
             ));
         $protocol
             ->expects($this->exactly(2))

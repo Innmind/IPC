@@ -8,14 +8,12 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Message\ConnectionClose,
-    Exception\MessageNotSent,
-    Exception\RuntimeException,
 };
-use Innmind\Socket\{
-    Server\Connection,
-    Exception\Exception as Socket,
+use Innmind\Socket\Server\Connection;
+use Innmind\Immutable\{
+    Maybe,
+    SideEffect,
 };
-use Innmind\Stream\Exception\Exception as Stream;
 
 final class Unix implements Client
 {
@@ -29,25 +27,31 @@ final class Unix implements Client
         $this->protocol = $protocol;
     }
 
-    public function send(Message $message): void
+    public function send(Message $message): Maybe
     {
         if ($this->closed()) {
-            return;
+            /** @var Maybe<Client> */
+            return Maybe::nothing();
         }
 
-        try {
-            $this->connection->write(
-                $this->protocol->encode($message),
-            );
-        } catch (Stream | Socket $e) {
-            throw new MessageNotSent('', 0, $e);
-        }
+        /** @var Maybe<Client> */
+        return $this
+            ->connection
+            ->write($this->protocol->encode($message))
+            ->maybe()
+            ->map(fn() => $this);
     }
 
-    public function close(): void
+    public function close(): Maybe
     {
+        if ($this->closed()) {
+            return Maybe::just(new SideEffect);
+        }
+
         try {
-            $this->send(new ConnectionClose);
+            return $this
+                ->send(new ConnectionClose)
+                ->map(static fn() => new SideEffect);
         } finally {
             $this->closed = true;
         }

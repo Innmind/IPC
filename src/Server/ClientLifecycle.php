@@ -78,7 +78,10 @@ final class ClientLifecycle
 
         if ($message->equals(new ConnectionClose)) {
             try {
-                $this->client->send(new ConnectionCloseOk);
+                $_ = $this->client->send(new ConnectionCloseOk)->match(
+                    static fn() => null,
+                    static fn() => throw new MessageNotSent,
+                );
                 $this->connection->close();
             } catch (MessageNotSent $e) {
                 // nothing to do
@@ -118,7 +121,10 @@ final class ClientLifecycle
             return;
         }
 
-        $this->client->send(new MessageReceived);
+        $_ = $this->client->send(new MessageReceived)->match(
+            static fn() => null,
+            static fn() => throw new MessageNotSent,
+        );
         $notify($message, $this->client);
 
         if ($this->client->closed()) {
@@ -139,12 +145,13 @@ final class ClientLifecycle
             ->longerThan($this->heartbeat);
 
         if ($trigger) {
-            try {
-                $this->client->send(new Heartbeat);
-            } catch (MessageNotSent $e) {
-                // happens when the client has been forced closed (for example
-                // with a `kill -9` on the client process)
-            }
+            // do nothing when failling to send the message as it happens when
+            // the client has been forced closed (for example with a `kill -9`
+            // on the client process)
+            $_ = $this->client->send(new Heartbeat)->match(
+                static fn() => null,
+                static fn() => null,
+            );
         }
     }
 
@@ -154,13 +161,16 @@ final class ClientLifecycle
             return;
         }
 
-        try {
-            $this->client->close();
-            $this->pendingCloseOk = true;
-            $this->pendingStartOk = false;
-        } catch (MessageNotSent $e) {
-            $this->garbage = true;
-        }
+        /** @psalm-suppress AssignmentToVoid */
+        $_ = $this->client->close()->match(
+            function() {
+                $this->pendingCloseOk = true;
+                $this->pendingStartOk = false;
+            },
+            function() {
+                $this->garbage = true;
+            },
+        );
     }
 
     public function toBeGarbageCollected(): bool
@@ -170,7 +180,10 @@ final class ClientLifecycle
 
     private function greet(): void
     {
-        $this->client->send(new ConnectionStart);
+        $_ = $this->client->send(new ConnectionStart)->match(
+            static fn() => null,
+            static fn() => throw new MessageNotSent,
+        );
         $this->lastHeartbeat = $this->clock->now();
         $this->pendingStartOk = true;
     }

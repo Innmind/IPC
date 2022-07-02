@@ -3,9 +3,21 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
+use Innmind\Immutable\{
+    Maybe,
+    SideEffect,
+};
+
 interface Client
 {
-    public function send(Message $message): void;
-    public function close(): void;
+    /**
+     * @return Maybe<self> Returns nothing when it fails to send the message
+     */
+    public function send(Message $message): Maybe;
+
+    /**
+     * @return Maybe<SideEffect> Returns nothing when it fails to close properly
+     */
+    public function close(): Maybe;
     public function closed(): bool;
 }
