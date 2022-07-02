@@ -134,7 +134,7 @@ final class Unix implements Server
                     $watch = $watch->forRead($connection);
                     $this->connections = ($this->connections)(
                         $connection,
-                        new ClientLifecycle(
+                        ClientLifecycle::of(
                             $connection,
                             $this->protocol,
                             $this->clock,
@@ -155,7 +155,8 @@ final class Unix implements Server
                             static fn($lifecycle) => $lifecycle,
                             static fn() => throw new \LogicException,
                         );
-                        $lifecycle->notify($listen);
+                        $lifecycle = $lifecycle->notify($listen);
+                        $this->connections = ($this->connections)($connection, $lifecycle);
 
                         if ($lifecycle->toBeGarbageCollected()) {
                             $this->connections = $this->connections->remove($connection);
@@ -201,12 +202,9 @@ final class Unix implements Server
         }
 
         $this->shuttingDown = true;
-        $_ = $this
-            ->connections
-            ->values()
-            ->foreach(static function(ClientLifecycle $client): void {
-                $client->shutdown();
-            });
+        $this->connections = $this->connections->map(
+            static fn($_, $client) => $client->shutdown(),
+        );
     }
 
     private function monitorTermination(ServerSocket $server): void
@@ -235,15 +233,13 @@ final class Unix implements Server
      */
     private function heartbeat(Set $activeSockets): void
     {
-        $_ = $this
+        $pinged = $this
             ->connections
             ->filter(static function(Connection $connection) use ($activeSockets): bool {
                 return !$activeSockets->contains($connection);
             })
-            ->values()
-            ->foreach(static function(ClientLifecycle $client): void {
-                $client->heartbeat();
-            });
+            ->map(static fn($_, $client) => $client->heartbeat());
+        $this->connections = $this->connections->merge($pinged);
     }
 
     private function registerSignals(): void

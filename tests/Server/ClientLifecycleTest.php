@@ -62,7 +62,7 @@ class ClientLifecycleTest extends TestCase
             ->with(Str::of('start'))
             ->willReturn(Either::right($connection));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -105,9 +105,9 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(false);
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
-        $this->assertNull($lifecycle->heartbeat());
+        $this->assertSame($lifecycle, $lifecycle->heartbeat());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
 
@@ -138,11 +138,11 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->once())
             ->method('now');
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
-        $lifecycle->shutdown();
+        $lifecycle = $lifecycle->shutdown();
         $this->assertTrue($lifecycle->toBeGarbageCollected());
-        $this->assertNull($lifecycle->heartbeat());
+        $this->assertSame($lifecycle, $lifecycle->heartbeat());
     }
 
     public function testSilenceFailureToHeartbeatClient()
@@ -189,9 +189,9 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
-        $this->assertNull($lifecycle->heartbeat());
+        $this->assertSame($lifecycle, $lifecycle->heartbeat());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
 
@@ -236,9 +236,9 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
-        $this->assertNull($lifecycle->heartbeat());
+        $this->assertSame($lifecycle, $lifecycle->heartbeat());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
 
@@ -268,10 +268,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::nothing());
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(static function() use (&$called) {
+        $this->assertSame($lifecycle, $lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -304,10 +304,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just($this->createMock(Message::class)));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(static function() use (&$called) {
+        $this->assertSame($lifecycle, $lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -340,10 +340,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new Heartbeat));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->notify(static function() use (&$called) {
+        $this->assertSame($lifecycle, $lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -382,14 +382,14 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionClose),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
         $callback = static function() use (&$called) {
             $called = true;
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // connection close
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection close
         $this->assertFalse($called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -436,7 +436,7 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($message),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = 0;
         $callback = function($a, $b) use (&$called, $message) {
             ++$called;
@@ -444,9 +444,9 @@ class ClientLifecycleTest extends TestCase
             $this->assertInstanceOf(Client::class, $b);
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message 1
-        $this->assertNull($lifecycle->notify($callback)); // message 2
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 1
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 2
         $this->assertSame(2, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -493,16 +493,16 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($this->createMock(Message::class)),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message 1
-        $this->assertNull($lifecycle->notify($callback)); // message 2
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 1
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 2
         $this->assertSame(1, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -552,16 +552,16 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionCloseOk),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message 1
-        $this->assertNull($lifecycle->notify($callback)); // connection close ok
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 1
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection close ok
         $this->assertSame(1, $called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -608,16 +608,16 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionCloseOk),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
             $client->close();
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message 1
-        $this->assertNull($lifecycle->notify($callback)); // connection close ok
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message 1
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection close ok
         $this->assertSame(1, $called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -655,15 +655,15 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($message),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = 0;
         $callback = static function($a, $b) use (&$called) {
             ++$called;
         };
 
-        $this->assertNull($lifecycle->notify($callback)); // connection start
-        $this->assertNull($lifecycle->notify($callback)); // message
-        $this->assertNull($lifecycle->notify($callback)); // protocol message
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // connection start
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // message
+        $this->assertSame($lifecycle, $lifecycle->notify($callback)); // protocol message
         $this->assertSame(1, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -697,10 +697,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new ConnectionCloseOk));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->shutdown());
+        $this->assertSame($lifecycle, $lifecycle->shutdown());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
         $lifecycle->notify(static function() use (&$called) {
             $called = true;
@@ -739,10 +739,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new ConnectionCloseOk));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertNull($lifecycle->shutdown());
+        $this->assertSame($lifecycle, $lifecycle->shutdown());
         $this->assertFalse($lifecycle->toBeGarbageCollected());
         $lifecycle->notify(static function() use (&$called) {
             $called = true;
@@ -778,9 +778,9 @@ class ClientLifecycleTest extends TestCase
                 Str::of('close'),
             ));
 
-        $lifecycle = new ClientLifecycle($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
-        $this->assertNull($lifecycle->shutdown());
+        $this->assertSame($lifecycle, $lifecycle->shutdown());
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
 

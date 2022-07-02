@@ -39,7 +39,7 @@ final class ClientLifecycle
     private bool $pendingCloseOk = false;
     private bool $garbage = false;
 
-    public function __construct(
+    private function __construct(
         Connection $connection,
         Protocol $protocol,
         Clock $clock,
@@ -53,27 +53,36 @@ final class ClientLifecycle
         $this->greet();
     }
 
-    public function notify(callable $notify): void
+    public static function of(
+        Connection $connection,
+        Protocol $protocol,
+        Clock $clock,
+        ElapsedPeriod $heartbeat,
+    ): self {
+        return new self($connection, $protocol, $clock, $heartbeat);
+    }
+
+    public function notify(callable $notify): self
     {
         if ($this->toBeGarbageCollected()) {
-            return;
+            return $this;
         }
 
         try {
             $message = $this->read();
             $this->lastHeartbeat = $this->clock->now();
         } catch (NoMessage $e) {
-            return;
+            return $this;
         }
 
         if ($this->pendingStartOk && !$message->equals(new ConnectionStartOk)) {
-            return;
+            return $this;
         }
 
         if ($this->pendingStartOk && $message->equals(new ConnectionStartOk)) {
             $this->pendingStartOk = false;
 
-            return;
+            return $this;
         }
 
         if ($message->equals(new ConnectionClose)) {
@@ -88,12 +97,12 @@ final class ClientLifecycle
             } finally {
                 $this->garbage = true;
 
-                return;
+                return $this;
             }
         }
 
         if ($this->pendingCloseOk && !$message->equals(new ConnectionCloseOk)) {
-            return;
+            return $this;
         }
 
         if ($this->pendingCloseOk && $message->equals(new ConnectionCloseOk)) {
@@ -105,7 +114,7 @@ final class ClientLifecycle
                 $this->pendingCloseOk = false;
                 $this->garbage = true;
 
-                return;
+                return $this;
             }
         }
 
@@ -118,7 +127,7 @@ final class ClientLifecycle
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
-            return;
+            return $this;
         }
 
         $_ = $this->client->send(new MessageReceived)->match(
@@ -130,12 +139,14 @@ final class ClientLifecycle
         if ($this->client->closed()) {
             $this->pendingCloseOk = true;
         }
+
+        return $this;
     }
 
-    public function heartbeat(): void
+    public function heartbeat(): self
     {
         if ($this->toBeGarbageCollected()) {
-            return;
+            return $this;
         }
 
         $trigger = $this
@@ -153,12 +164,14 @@ final class ClientLifecycle
                 static fn() => null,
             );
         }
+
+        return $this;
     }
 
-    public function shutdown(): void
+    public function shutdown(): self
     {
         if ($this->toBeGarbageCollected()) {
-            return;
+            return $this;
         }
 
         /** @psalm-suppress AssignmentToVoid */
@@ -171,6 +184,8 @@ final class ClientLifecycle
                 $this->garbage = true;
             },
         );
+
+        return $this;
     }
 
     public function toBeGarbageCollected(): bool
