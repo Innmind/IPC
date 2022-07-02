@@ -12,11 +12,8 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
+    Message\MessageReceived,
     Exception\Timedout,
-    Exception\InvalidConnectionClose,
-    Exception\RuntimeException,
-    Exception\MessageNotSent,
-    Exception\NoMessage,
 };
 use Innmind\OperatingSystem\Sockets;
 use Innmind\Socket\{
@@ -37,6 +34,8 @@ use Innmind\TimeContinuum\{
 use Innmind\Immutable\{
     Maybe,
     Set,
+    SideEffect,
+    Sequence,
 };
 
 final class Unix implements Process
@@ -93,21 +92,16 @@ final class Unix implements Process
         return $this->name;
     }
 
-    public function send(Message ...$messages): void
+    /**
+     * @no-named-arguments
+     */
+    public function send(Message ...$messages): Maybe
     {
-        if ($this->closed()) {
-            return;
-        }
-
-        foreach ($messages as $message) {
-            try {
-                $this->sendMessage($message);
-
-                $this->wait(); // for message acknowledgement
-            } catch (RuntimeException $e) {
-                throw new MessageNotSent('', 0, $e);
-            }
-        }
+        /** @var Maybe<Process> */
+        return Sequence::of(...$messages)->reduce(
+            Maybe::just($this),
+            self::maybeSendMessage(...),
+        );
     }
 
     public function wait(ElapsedPeriod $timeout = null): Maybe
@@ -159,23 +153,19 @@ final class Unix implements Process
             });
     }
 
-    public function close(): void
+    public function close(): Maybe
     {
         if ($this->closed()) {
-            return;
+            return Maybe::just(new SideEffect);
         }
 
         $this->sendMessage(new ConnectionClose);
 
         try {
-            $_ = $this->wait()->match(
-                function($message) {
-                    if (!$message->equals(new ConnectionCloseOk)) {
-                        throw new InvalidConnectionClose($this->name()->toString());
-                    }
-                },
-                static fn() => null,
-            );
+            return $this
+                ->wait()
+                ->filter(static fn($message) => $message->equals(new ConnectionCloseOk))
+                ->map(static fn() => new SideEffect);
         } finally {
             $this->cut();
         }
@@ -218,18 +208,42 @@ final class Unix implements Process
         }
     }
 
-    private function sendMessage(Message $message): void
+    /**
+     * @return Maybe<self>
+     */
+    private function sendMessage(Message $message): Maybe
     {
         if ($this->closed()) {
-            return;
+            /** @var Maybe<self> */
+            return Maybe::nothing();
         }
 
-        try {
-            $this->socket->write(
-                $this->protocol->encode($message),
+        /** @var Maybe<self> */
+        return $this
+            ->socket
+            ->write($this->protocol->encode($message))
+            ->match(
+                fn() => Maybe::just($this),
+                static fn() => Maybe::nothing(),
             );
-        } catch (Stream | Socket $e) {
-            throw new RuntimeException('', 0, $e);
-        }
+    }
+
+    /**
+     * @param Maybe<self> $maybe
+     *
+     * @return Maybe<self>
+     */
+    private static function maybeSendMessage(Maybe $maybe, Message $message): Maybe
+    {
+        return $maybe->flatMap(
+            static fn($self) => $self
+                ->sendMessage($message)
+                ->flatMap(
+                    static fn($self) => $self
+                        ->wait() // for message acknowledgement
+                        ->filter(static fn($message) => $message->equals(new MessageReceived))
+                        ->map(static fn() => $self),
+                ),
+        );
     }
 }
