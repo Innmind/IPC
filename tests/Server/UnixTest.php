@@ -8,7 +8,6 @@ use Innmind\IPC\{
     Server,
     Protocol,
     Exception\RuntimeException,
-    Exception\Stop,
 };
 use Innmind\OperatingSystem\{
     Factory,
@@ -201,8 +200,8 @@ class UnixTest extends TestCase
             );
 
         try {
-            $server(static function() {
-                throw new Stop;
+            $server(static function($_, $__, $continuation) {
+                return $continuation->stop();
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -210,8 +209,8 @@ class UnixTest extends TestCase
 
         try {
             // check signals are not registered twice
-            $server(static function() {
-                throw new Stop;
+            $server(static function($_, $__, $continuation) {
+                return $continuation->stop();
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -239,8 +238,8 @@ class UnixTest extends TestCase
             new Timeout(10000),
         );
 
-        $this->assertNull($listen(static function() {
-            throw new Stop;
+        $this->assertNull($listen(static function($_, $__, $continuation) {
+            return $continuation->stop();
         }));
     }
 

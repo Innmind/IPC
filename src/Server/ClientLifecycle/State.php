@@ -14,6 +14,7 @@ use Innmind\IPC\{
     Message\MessageReceived,
     Message\Heartbeat,
     Exception\MessageNotSent,
+    Exception\Stop,
 };
 use Innmind\Socket\Server\Connection;
 use Innmind\Immutable\Maybe;
@@ -102,6 +103,7 @@ enum State
         /** @var Maybe<self> */
         return $continuation->match(
             static fn($client) => $client->close()->map(static fn() => self::pendingCloseOk),
+            static fn() => throw new Stop,
             fn() => Maybe::just($this),
         );
     }

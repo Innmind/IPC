@@ -4,7 +4,6 @@ declare(strict_types = 1);
 use Innmind\IPC\{
     Factory as IPC,
     Process\Name,
-    Exception\Stop,
 };
 use Innmind\OperatingSystem\Factory;
 
