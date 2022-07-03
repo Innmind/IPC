@@ -4,10 +4,7 @@ declare(strict_types = 1);
 namespace Innmind\IPC\Server;
 
 use Innmind\IPC\{
-    Server\ClientLifecycle\PendingStartOk,
-    Server\ClientLifecycle\AwaitingMessage,
-    Server\ClientLifecycle\PendingCloseOk,
-    Server\ClientLifecycle\Garbage,
+    Server\ClientLifecycle\State,
     Protocol,
     Message,
     Message\ConnectionStart,
@@ -23,22 +20,24 @@ use Innmind\TimeContinuum\{
     PointInTime,
 };
 
-abstract class ClientLifecycle
+final class ClientLifecycle
 {
-    protected Connection $connection;
-    protected Client $client;
+    private Connection $connection;
     private Protocol $protocol;
     private Clock $clock;
+    private Client $client;
     private ElapsedPeriod $heartbeat;
     private PointInTime $lastHeartbeat;
+    private State $state;
 
-    final private function __construct(
+    private function __construct(
         Connection $connection,
         Protocol $protocol,
         Clock $clock,
         ElapsedPeriod $heartbeat,
         Client $client,
         PointInTime $lastHeartbeat,
+        State $state,
     ) {
         $this->connection = $connection;
         $this->protocol = $protocol;
@@ -46,31 +45,32 @@ abstract class ClientLifecycle
         $this->heartbeat = $heartbeat;
         $this->client = $client;
         $this->lastHeartbeat = $lastHeartbeat;
+        $this->state = $state;
     }
 
-    final public static function of(
+    public static function of(
         Connection $connection,
         Protocol $protocol,
         Clock $clock,
         ElapsedPeriod $heartbeat,
     ): self {
         $client = new Client\Unix($connection, $protocol);
-        $client = $client->send(new ConnectionStart)->match(
-            static fn($client) => $client,
-            static fn() => throw new MessageNotSent,
-        );
 
-        return new PendingStartOk(
-            $connection,
-            $protocol,
-            $clock,
-            $heartbeat,
-            $client,
-            $clock->now(),
+        return $client->send(new ConnectionStart)->match(
+            static fn($client) => new self(
+                $connection,
+                $protocol,
+                $clock,
+                $heartbeat,
+                $client,
+                $clock->now(),
+                State::pendingStartOk,
+            ),
+            static fn() => throw new MessageNotSent,
         );
     }
 
-    final public function notify(callable $notify): PendingStartOk|AwaitingMessage|PendingCloseOk|Garbage
+    public function notify(callable $notify): self
     {
         if ($this->toBeGarbageCollected()) {
             return $this;
@@ -78,20 +78,28 @@ abstract class ClientLifecycle
 
         try {
             $message = $this->read();
-            $this->lastHeartbeat = $this->clock->now();
+            $lastHeartbeat = $this->clock->now();
         } catch (NoMessage $e) {
             return $this->garbage();
         }
 
-        return $this->actUpon($message, $notify);
+        return new self(
+            $this->connection,
+            $this->protocol,
+            $this->clock,
+            $this->heartbeat,
+            $this->client,
+            $lastHeartbeat,
+            $this->state->actUpon(
+                $this->client,
+                $this->connection,
+                $message,
+                $notify,
+            ),
+        );
     }
 
-    abstract public function actUpon(
-        Message $message,
-        callable $notify,
-    ): PendingStartOk|AwaitingMessage|PendingCloseOk|Garbage;
-
-    final public function heartbeat(): PendingStartOk|AwaitingMessage|PendingCloseOk|Garbage
+    public function heartbeat(): self
     {
         if ($this->toBeGarbageCollected()) {
             return $this;
@@ -116,7 +124,7 @@ abstract class ClientLifecycle
         return $this;
     }
 
-    final public function shutdown(): PendingStartOk|AwaitingMessage|PendingCloseOk|Garbage
+    public function shutdown(): self
     {
         if ($this->toBeGarbageCollected()) {
             return $this;
@@ -128,53 +136,42 @@ abstract class ClientLifecycle
         );
     }
 
-    abstract public function toBeGarbageCollected(): bool;
-
-    protected function awaitingMessage(): AwaitingMessage
+    public function toBeGarbageCollected(): bool
     {
-        return new AwaitingMessage(
+        return $this->state->toBeGarbageCollected();
+    }
+
+    private function pendingCloseOk(): self
+    {
+        return new self(
             $this->connection,
             $this->protocol,
             $this->clock,
             $this->heartbeat,
             $this->client,
             $this->lastHeartbeat,
+            State::pendingCloseOk,
         );
     }
 
-    protected function pendingCloseOk(): PendingCloseOk
+    private function garbage(): self
     {
-        return new PendingCloseOk(
+        return new self(
             $this->connection,
             $this->protocol,
             $this->clock,
             $this->heartbeat,
             $this->client,
             $this->lastHeartbeat,
+            State::garbage,
         );
     }
 
-    protected function garbage(): Garbage
-    {
-        return new Garbage(
-            $this->connection,
-            $this->protocol,
-            $this->clock,
-            $this->heartbeat,
-            $this->client,
-            $this->lastHeartbeat,
-        );
-    }
-
-    protected function read(): Message
+    private function read(): Message
     {
         return $this->protocol->decode($this->connection)->match(
             static fn($message) => $message,
-            function() {
-                $this->garbage = true;
-
-                throw new NoMessage;
-            },
+            static fn() => throw new NoMessage,
         );
     }
 }

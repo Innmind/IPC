@@ -5,10 +5,6 @@ namespace Tests\Innmind\IPC\Server;
 
 use Innmind\IPC\{
     Server\ClientLifecycle,
-    Server\ClientLifecycle\PendingStartOk,
-    Server\ClientLifecycle\AwaitingMessage,
-    Server\ClientLifecycle\PendingCloseOk,
-    Server\ClientLifecycle\Garbage,
     Protocol,
     CLient,
     Message,
@@ -278,7 +274,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = $lifecycle->notify(static function() use (&$called) {
             $called = true;
         });
-        $this->assertInstanceOf(Garbage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertFalse($called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -312,7 +308,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertSame($lifecycle, $lifecycle->notify(static function() use (&$called) {
+        $this->assertEquals($lifecycle, $lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -348,7 +344,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
         $called = false;
 
-        $this->assertSame($lifecycle, $lifecycle->notify(static function() use (&$called) {
+        $this->assertEquals($lifecycle, $lifecycle->notify(static function() use (&$called) {
             $called = true;
         }));
         $this->assertFalse($called);
@@ -372,7 +368,8 @@ class ClientLifecycleTest extends TestCase
             ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
-            ->method('close');
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -394,9 +391,9 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // connection close
-        $this->assertInstanceOf(Garbage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertFalse($called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -452,11 +449,11 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 1
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 2
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertSame(2, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -511,11 +508,11 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 1
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 2
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertSame(1, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -541,7 +538,8 @@ class ClientLifecycleTest extends TestCase
             ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
-            ->method('close');
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
         $protocol
             ->expects($this->exactly(3))
             ->method('encode')
@@ -573,11 +571,11 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 1
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // connection close ok
-        $this->assertInstanceOf(Garbage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertSame(1, $called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -632,11 +630,11 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message 1
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // connection close ok
-        $this->assertInstanceOf(Garbage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertSame(1, $called);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
@@ -681,11 +679,11 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback); // connection start
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // message
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback); // protocol message
-        $this->assertInstanceOf(AwaitingMessage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertSame(1, $called);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
     }
@@ -707,7 +705,8 @@ class ClientLifecycleTest extends TestCase
             ->willReturn(Either::right($connection));
         $connection
             ->expects($this->once())
-            ->method('close');
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -723,7 +722,7 @@ class ClientLifecycleTest extends TestCase
         $called = false;
 
         $lifecycle = $lifecycle->shutdown();
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
         $lifecycle = $lifecycle->notify(static function() use (&$called) {
             $called = true;
@@ -766,7 +765,7 @@ class ClientLifecycleTest extends TestCase
         $called = false;
 
         $lifecycle = $lifecycle->shutdown();
-        $this->assertInstanceOf(PendingCloseOk::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertFalse($lifecycle->toBeGarbageCollected());
         $lifecycle = $lifecycle->notify(static function() use (&$called) {
             $called = true;
@@ -805,7 +804,7 @@ class ClientLifecycleTest extends TestCase
         $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
 
         $lifecycle = $lifecycle->shutdown();
-        $this->assertInstanceOf(Garbage::class, $lifecycle);
+        $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $this->assertTrue($lifecycle->toBeGarbageCollected());
     }
 
