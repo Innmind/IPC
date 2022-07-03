@@ -13,7 +13,6 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\MessageReceived,
     Message\Heartbeat,
-    Exception\MessageNotSent,
     Exception\Stop,
 };
 use Innmind\Immutable\Maybe;
@@ -90,23 +89,10 @@ enum State
             return Maybe::just($this);
         }
 
-        $_ = $client->send(new MessageReceived)->match(
-            static fn() => null,
-            static fn() => throw new MessageNotSent,
-        );
-        $continuation = $notify($message, Continuation::start($client));
-
-        /** @var Maybe<self> */
-        return $continuation->match(
-            fn($client, $message) => $client
-                ->send($message)
-                ->map(fn() => $this),
-            static fn($client) => $client
-                ->send(new ConnectionClose)
-                ->map(static fn() => self::pendingCloseOk),
-            static fn() => throw new Stop,
-            fn() => Maybe::just($this),
-        );
+        return $client
+            ->send(new MessageReceived)
+            ->map(static fn($client) => $notify($message, Continuation::start($client)))
+            ->flatMap($this->determineNextState(...));
     }
 
     /**
@@ -123,5 +109,23 @@ enum State
 
         /** @var Maybe<self> */
         return Maybe::just($this);
+    }
+
+    /**
+     * @return Maybe<self>
+     */
+    private function determineNextState(Continuation $continuation): Maybe
+    {
+        /** @var Maybe<self> */
+        return $continuation->match(
+            fn($client, $message) => $client
+                ->send($message)
+                ->map(fn() => $this),
+            static fn($client) => $client
+                ->send(new ConnectionClose)
+                ->map(static fn() => self::pendingCloseOk),
+            static fn() => throw new Stop,
+            fn() => Maybe::just($this),
+        );
     }
 }
