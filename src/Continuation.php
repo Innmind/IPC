@@ -24,11 +24,17 @@ final class Continuation
         return new self;
     }
 
+    /**
+     * The client will be closed and then garbage collected
+     */
     public function close(Client $client): self
     {
         return new self($client);
     }
 
+    /**
+     * The server will be gracefully shutdown
+     */
     public function stop(): self
     {
         return new self(null, true);
