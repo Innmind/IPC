@@ -30,7 +30,15 @@ $_ = $process
     ->wait()
     ->flatMap(
         static fn($message) => $process
-            ->wait()
+            ->send(Sequence::of(new Message\Generic(
+                MediaType::of('text/plain'),
+                Str::of('stop')
+            )))
+            ->map(static fn() => $message),
+    )
+    ->flatMap(
+        static fn($message) => $process
+            ->wait() // wait for server termination
             ->otherwise(static fn() => Maybe::just($message)),
     )
     ->match(

@@ -102,6 +102,7 @@ enum State
 
         /** @var Maybe<self> */
         return $continuation->match(
+            fn($message) => $client->send($message)->map(fn() => $this),
             static fn($client) => $client->close()->map(static fn() => self::pendingCloseOk),
             static fn() => throw new Stop,
             fn() => Maybe::just($this),

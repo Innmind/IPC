@@ -6,13 +6,16 @@ use Innmind\IPC\{
     Process\Name,
 };
 use Innmind\OperatingSystem\Factory;
+use Innmind\Immutable\Str;
 
 require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = IPC::build($os);
 $ipc->listen(new Name('server'))(static function($message, $client, $continuation) {
-    $client->send($message);
+    if ($message->content()->equals(Str::of('stop'))) {
+        return $continuation->stop();
+    }
 
-    return $continuation->stop();
+    return $continuation->respond($message);
 });
