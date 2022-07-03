@@ -75,12 +75,12 @@ final class ClientLifecycle
                 $message,
                 $notify,
             ))
-            ->map(fn($state) => new self(
+            ->map(fn($pair) => new self(
                 $this->clock,
                 $this->heartbeat,
-                $this->client,
+                $pair[0],
                 $this->clock->now(),
-                $state,
+                $pair[1],
             ));
     }
 
@@ -96,9 +96,17 @@ final class ClientLifecycle
             // do nothing when failling to send the message as it happens when
             // the client has been forced closed (for example with a `kill -9`
             // on the client process)
-            $_ = $this->client->send(new Heartbeat)->match(
-                static fn() => null,
-                static fn() => null,
+            $client = $this->client->send(new Heartbeat)->match(
+                static fn($client) => $client,
+                fn() => $this->client,
+            );
+
+            return new self(
+                $this->clock,
+                $this->heartbeat,
+                $client,
+                $this->lastHeartbeat,
+                $this->state,
             );
         }
 
@@ -113,15 +121,15 @@ final class ClientLifecycle
         return $this
             ->client
             ->send(new ConnectionClose)
-            ->map(fn() => $this->pendingCloseOk());
+            ->map($this->pendingCloseOk(...));
     }
 
-    private function pendingCloseOk(): self
+    private function pendingCloseOk(Client $client): self
     {
         return new self(
             $this->clock,
             $this->heartbeat,
-            $this->client,
+            $client,
             $this->lastHeartbeat,
             State::pendingCloseOk,
         );

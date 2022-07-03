@@ -26,7 +26,7 @@ enum State
     /**
      * @param callable(Message, Continuation): Continuation $notify
      *
-     * @return Maybe<self>
+     * @return Maybe<array{Client, self}>
      */
     public function actUpon(
         Client $client,
@@ -34,7 +34,7 @@ enum State
         callable $notify,
     ): Maybe {
         return match ($this) {
-            self::pendingStartOk => $this->ackStartOk($message),
+            self::pendingStartOk => $this->ackStartOk($client, $message),
             self::awaitingMessage => $this->handleMessage(
                 $client,
                 $message,
@@ -45,23 +45,23 @@ enum State
     }
 
     /**
-     * @return Maybe<self>
+     * @return Maybe<array{Client, self}>
      */
-    private function ackStartOk(Message $message): Maybe
+    private function ackStartOk(Client $client, Message $message): Maybe
     {
         if ($message->equals(new ConnectionStartOk)) {
-            /** @var Maybe<self> */
-            return Maybe::just(self::awaitingMessage);
+            /** @var Maybe<array{Client, self}> */
+            return Maybe::just([$client, self::awaitingMessage]);
         }
 
-        /** @var Maybe<self> */
-        return Maybe::just($this);
+        /** @var Maybe<array{Client, self}> */
+        return Maybe::just([$client, $this]);
     }
 
     /**
      * @param callable(Message, Continuation): Continuation $notify
      *
-     * @return Maybe<self>
+     * @return Maybe<array{Client, self}>
      */
     private function handleMessage(
         Client $client,
@@ -69,7 +69,7 @@ enum State
         callable $notify,
     ): Maybe {
         if ($message->equals(new ConnectionClose)) {
-            /** @var Maybe<self> */
+            /** @var Maybe<array{Client, self}> */
             return $client
                 ->send(new ConnectionCloseOk)
                 ->flatMap(static fn($client) => $client->close())
@@ -85,8 +85,8 @@ enum State
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
-            /** @var Maybe<self> */
-            return Maybe::just($this);
+            /** @var Maybe<array{Client, self}> */
+            return Maybe::just([$client, $this]);
         }
 
         return $client
@@ -96,36 +96,36 @@ enum State
     }
 
     /**
-     * @return Maybe<self>
+     * @return Maybe<array{Client, self}>
      */
     private function ackCloseOk(Client $client, Message $message): Maybe
     {
         if ($message->equals(new ConnectionCloseOk)) {
-            /** @var Maybe<self> */
+            /** @var Maybe<array{Client, self}> */
             return $client
                 ->close()
                 ->filter(static fn() => false); // always return nothing
         }
 
-        /** @var Maybe<self> */
-        return Maybe::just($this);
+        /** @var Maybe<array{Client, self}> */
+        return Maybe::just([$client, $this]);
     }
 
     /**
-     * @return Maybe<self>
+     * @return Maybe<array{Client, self}>
      */
     private function determineNextState(Continuation $continuation): Maybe
     {
-        /** @var Maybe<self> */
+        /** @var Maybe<array{Client, self}> */
         return $continuation->match(
             fn($client, $message) => $client
                 ->send($message)
-                ->map(fn() => $this),
+                ->map(fn($client) => [$client, $this]),
             static fn($client) => $client
                 ->send(new ConnectionClose)
-                ->map(static fn() => self::pendingCloseOk),
+                ->map(static fn($client) => [$client, self::pendingCloseOk]),
             static fn() => throw new Stop,
-            fn() => Maybe::just($this),
+            fn($client) => Maybe::just([$client, $this]),
         );
     }
 }

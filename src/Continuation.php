@@ -63,8 +63,8 @@ final class Continuation
      *
      * @param callable(Client, Message): A $onResponse
      * @param callable(Client): B $onClose
-     * @param callable(): C $onContinue
-     * @param callable(): D $onStop
+     * @param callable(Client): C $onContinue
+     * @param callable(Client): D $onStop
      *
      * @return A|B|C|D
      */
@@ -86,10 +86,10 @@ final class Continuation
 
         if ($this->stop) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onStop();
+            return $onStop($this->client);
         }
 
         /** @psalm-suppress ImpureFunctionCall */
-        return $onContinue();
+        return $onContinue($this->client);
     }
 }
