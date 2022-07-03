@@ -19,7 +19,6 @@ final class Unix implements Client
 {
     private Connection $connection;
     private Protocol $protocol;
-    private bool $closed = false;
 
     public function __construct(Connection $connection, Protocol $protocol)
     {
@@ -29,7 +28,7 @@ final class Unix implements Client
 
     public function send(Message $message): Maybe
     {
-        if ($this->closed()) {
+        if ($this->connection->closed()) {
             /** @var Maybe<Client> */
             return Maybe::nothing();
         }
@@ -44,21 +43,6 @@ final class Unix implements Client
 
     public function close(): Maybe
     {
-        if ($this->closed()) {
-            return Maybe::just(new SideEffect);
-        }
-
-        try {
-            return $this
-                ->send(new ConnectionClose)
-                ->map(static fn() => new SideEffect);
-        } finally {
-            $this->closed = true;
-        }
-    }
-
-    private function closed(): bool
-    {
-        return $this->closed || $this->connection->closed();
+        return $this->connection->close()->maybe();
     }
 }

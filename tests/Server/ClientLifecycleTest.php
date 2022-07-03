@@ -43,10 +43,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('closed')
-            ->willReturn(false);
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -72,10 +68,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->once())
             ->method('write')
@@ -119,10 +111,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->exactly(2))
             ->method('write')
@@ -174,10 +162,6 @@ class ClientLifecycleTest extends TestCase
         $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->exactly(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->exactly(2))
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
             ->willReturn(Either::right($connection));
@@ -224,10 +208,6 @@ class ClientLifecycleTest extends TestCase
         $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->once())
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'))
             ->willReturn(Either::right($connection));
@@ -264,10 +244,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->once())
             ->method('write')
@@ -308,10 +284,6 @@ class ClientLifecycleTest extends TestCase
         $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->once())
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->once())
             ->method('write')
             ->with(Str::of('start'))
             ->willReturn(Either::right($connection));
@@ -348,10 +320,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->exactly(2))
             ->method('write')
@@ -403,10 +371,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(3))
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->exactly(3))
             ->method('write')
@@ -477,10 +441,6 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(4))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
             ->expects($this->exactly(3))
             ->method('write')
             ->withConsecutive(
@@ -547,10 +507,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(4))
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->exactly(3))
             ->method('write')
@@ -623,10 +579,6 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(4))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
             ->expects($this->once())
             ->method('close')
             ->willReturn(Either::left(new FailedToCloseStream));
@@ -698,10 +650,6 @@ class ClientLifecycleTest extends TestCase
         $heartbeat = new Timeout(1000);
         $connection
             ->expects($this->exactly(2))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
-            ->expects($this->exactly(2))
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('received')])
             ->willReturn(Either::right($connection));
@@ -756,10 +704,6 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
             ->expects($this->exactly(2))
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('close')])
@@ -807,10 +751,6 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
-            ->method('closed')
-            ->willReturn(false);
-        $connection
             ->expects($this->exactly(2))
             ->method('write')
             ->withConsecutive([Str::of('start')], [Str::of('close')])
@@ -857,10 +797,6 @@ class ClientLifecycleTest extends TestCase
         $protocol = $this->createMock(Protocol::class);
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(3))
-            ->method('closed')
-            ->willReturn(false);
         $connection
             ->expects($this->exactly(2))
             ->method('write')

@@ -8,6 +8,7 @@ use Innmind\IPC\{
     Protocol,
     Message,
     Message\ConnectionStart,
+    Message\ConnectionClose,
     Message\Heartbeat,
     Client,
     Continuation,
@@ -83,7 +84,6 @@ final class ClientLifecycle
             ->read()
             ->flatMap(fn($message) => $this->state->actUpon(
                 $this->client,
-                $this->connection,
                 $message,
                 $notify,
             ))
@@ -126,7 +126,7 @@ final class ClientLifecycle
     {
         return $this
             ->client
-            ->close()
+            ->send(new ConnectionClose)
             ->map(fn() => $this->pendingCloseOk());
     }
 

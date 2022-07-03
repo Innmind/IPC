@@ -16,7 +16,6 @@ use Innmind\IPC\{
     Exception\MessageNotSent,
     Exception\Stop,
 };
-use Innmind\Socket\Server\Connection;
 use Innmind\Immutable\Maybe;
 
 enum State
@@ -32,7 +31,6 @@ enum State
      */
     public function actUpon(
         Client $client,
-        Connection $connection,
         Message $message,
         callable $notify,
     ): Maybe {
@@ -40,11 +38,10 @@ enum State
             self::pendingStartOk => $this->ackStartOk($message),
             self::awaitingMessage => $this->handleMessage(
                 $client,
-                $connection,
                 $message,
                 $notify,
             ),
-            self::pendingCloseOk => $this->ackCloseOk($connection, $message),
+            self::pendingCloseOk => $this->ackCloseOk($client, $message),
         };
     }
 
@@ -69,7 +66,6 @@ enum State
      */
     private function handleMessage(
         Client $client,
-        Connection $connection,
         Message $message,
         callable $notify,
     ): Maybe {
@@ -77,7 +73,7 @@ enum State
             /** @var Maybe<self> */
             return $client
                 ->send(new ConnectionCloseOk)
-                ->flatMap(static fn() => $connection->close()->maybe())
+                ->flatMap(static fn($client) => $client->close())
                 ->filter(static fn() => false); // always return nothing
         }
 
@@ -102,8 +98,12 @@ enum State
 
         /** @var Maybe<self> */
         return $continuation->match(
-            fn($client, $message) => $client->send($message)->map(fn() => $this),
-            static fn($client) => $client->close()->map(static fn() => self::pendingCloseOk),
+            fn($client, $message) => $client
+                ->send($message)
+                ->map(fn() => $this),
+            static fn($client) => $client
+                ->send(new ConnectionClose)
+                ->map(static fn() => self::pendingCloseOk),
             static fn() => throw new Stop,
             fn() => Maybe::just($this),
         );
@@ -112,13 +112,12 @@ enum State
     /**
      * @return Maybe<self>
      */
-    private function ackCloseOk(Connection $connection, Message $message): Maybe
+    private function ackCloseOk(Client $client, Message $message): Maybe
     {
         if ($message->equals(new ConnectionCloseOk)) {
             /** @var Maybe<self> */
-            return $connection
+            return $client
                 ->close()
-                ->maybe()
                 ->filter(static fn() => false); // always return nothing
         }
 

@@ -11,7 +11,10 @@ use Innmind\IPC\{
     Message\ConnectionClose,
 };
 use Innmind\Socket\Server\Connection;
-use Innmind\Stream\FailedToWriteToStream;
+use Innmind\Stream\{
+    FailedToWriteToStream,
+    FailedToCloseStream,
+};
 use Innmind\MediaType\MediaType;
 use Innmind\Immutable\{
     Str,
@@ -61,85 +64,20 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class),
+            $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
+            ->method('close')
+            ->willReturn(Either::right($expected = new SideEffect));
 
-        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
-            static fn($sideEffect) => $sideEffect,
-            static fn() => null,
-        ));
-        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
+        $this->assertSame($expected, $client->close()->match(
             static fn($sideEffect) => $sideEffect,
             static fn() => null,
         ));
     }
 
     public function testDoesntSendOnceClosed()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class),
-        );
-        $message = $this->createMock(Message::class);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
-
-        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
-            static fn($sideEffect) => $sideEffect,
-            static fn() => null,
-        ));
-        $this->assertNull($client->send($message)->match(
-            static fn($client) => $client,
-            static fn() => null,
-        ));
-    }
-
-    public function testDoesntReCloseIfAlreadyClosed()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class),
-        );
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
-
-        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
-            static fn($sideEffect) => $sideEffect,
-            static fn() => null,
-        ));
-        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
-            static fn($sideEffect) => $sideEffect,
-            static fn() => null,
-        ));
-    }
-
-    public function testConsideredClientClosedWhenConnectionClosed()
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
@@ -192,13 +130,12 @@ class UnixTest extends TestCase
             $protocol = $this->createMock(Protocol::class),
         );
         $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->willReturn(Str::of('watev'));
+            ->expects($this->never())
+            ->method('encode');
         $connection
             ->expects($this->once())
-            ->method('write')
-            ->willReturn(Either::left(new FailedToWriteToStream));
+            ->method('close')
+            ->willReturn(Either::left(new FailedToCloseStream));
 
         $this->assertNull($client->close()->match(
             static fn($sideEffect) => $sideEffect,
