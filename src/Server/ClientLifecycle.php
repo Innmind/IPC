@@ -10,7 +10,6 @@ use Innmind\IPC\{
     Message\ConnectionStart,
     Message\Heartbeat,
     Client,
-    Exception\NoMessage,
     Exception\MessageNotSent,
 };
 use Innmind\Socket\Server\Connection;
@@ -19,6 +18,7 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     PointInTime,
 };
+use Innmind\Immutable\Maybe;
 
 final class ClientLifecycle
 {
@@ -76,27 +76,25 @@ final class ClientLifecycle
             return $this;
         }
 
-        try {
-            $message = $this->read();
-            $lastHeartbeat = $this->clock->now();
-        } catch (NoMessage $e) {
-            return $this->garbage();
-        }
-
-        return new self(
-            $this->connection,
-            $this->protocol,
-            $this->clock,
-            $this->heartbeat,
-            $this->client,
-            $lastHeartbeat,
-            $this->state->actUpon(
-                $this->client,
-                $this->connection,
-                $message,
-                $notify,
-            ),
-        );
+        return $this
+            ->read()
+            ->match(
+                fn($message) => new self(
+                    $this->connection,
+                    $this->protocol,
+                    $this->clock,
+                    $this->heartbeat,
+                    $this->client,
+                    $this->clock->now(),
+                    $this->state->actUpon(
+                        $this->client,
+                        $this->connection,
+                        $message,
+                        $notify,
+                    ),
+                ),
+                fn() => $this->garbage(),
+            );
     }
 
     public function heartbeat(): self
@@ -167,11 +165,11 @@ final class ClientLifecycle
         );
     }
 
-    private function read(): Message
+    /**
+     * @return Maybe<Message>
+     */
+    private function read(): Maybe
     {
-        return $this->protocol->decode($this->connection)->match(
-            static fn($message) => $message,
-            static fn() => throw new NoMessage,
-        );
+        return $this->protocol->decode($this->connection);
     }
 }
