@@ -8,23 +8,26 @@ namespace Innmind\IPC;
  */
 final class Continuation
 {
-    private ?Client $closed;
+    private Client $client;
+    private bool $closed;
     private ?Message $response;
     private bool $stop;
 
     private function __construct(
-        Client $closed = null,
+        Client $client,
+        bool $closed = false,
         Message $response = null,
         bool $stop = false,
     ) {
+        $this->client = $client;
         $this->closed = $closed;
         $this->response = $response;
         $this->stop = $stop;
     }
 
-    public static function start(): self
+    public static function start(Client $client): self
     {
-        return new self;
+        return new self($client);
     }
 
     /**
@@ -32,15 +35,15 @@ final class Continuation
      */
     public function respond(Message $message): self
     {
-        return new self(response: $message);
+        return new self($this->client, response: $message);
     }
 
     /**
      * The client will be closed and then garbage collected
      */
-    public function close(Client $client): self
+    public function close(): self
     {
-        return new self(closed: $client);
+        return new self($this->client, closed: true);
     }
 
     /**
@@ -48,7 +51,7 @@ final class Continuation
      */
     public function stop(): self
     {
-        return new self(stop: true);
+        return new self($this->client, stop: true);
     }
 
     /**
@@ -58,7 +61,7 @@ final class Continuation
      * @template C
      * @template D
      *
-     * @param callable(Message): A $onResponse
+     * @param callable(Client, Message): A $onResponse
      * @param callable(Client): B $onClose
      * @param callable(): C $onContinue
      * @param callable(): D $onStop
@@ -73,12 +76,12 @@ final class Continuation
     ): mixed {
         if ($this->response instanceof Message) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onResponse($this->response);
+            return $onResponse($this->client, $this->response);
         }
 
-        if ($this->closed instanceof Client) {
+        if ($this->closed) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onClose($this->closed);
+            return $onClose($this->client);
         }
 
         if ($this->stop) {

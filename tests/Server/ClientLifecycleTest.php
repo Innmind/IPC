@@ -6,7 +6,8 @@ namespace Tests\Innmind\IPC\Server;
 use Innmind\IPC\{
     Server\ClientLifecycle,
     Protocol,
-    CLient,
+    Client,
+    Continuation,
     Message,
     Message\ConnectionStart,
     Message\ConnectionStartOk,
@@ -443,12 +444,12 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = function($a, $b, $c) use (&$called, $message) {
+        $callback = function($a, $b) use (&$called, $message) {
             ++$called;
             $this->assertSame($message, $a);
-            $this->assertInstanceOf(Client::class, $b);
+            $this->assertInstanceOf(Continuation::class, $b);
 
-            return $c;
+            return $b;
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -516,10 +517,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client, $continuation) use (&$called) {
+        $callback = static function($_, $continuation) use (&$called) {
             ++$called;
 
-            return $continuation->close($client);
+            return $continuation->close();
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -591,10 +592,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client, $continuation) use (&$called) {
+        $callback = static function($_, $continuation) use (&$called) {
             ++$called;
 
-            return $continuation->close($client);
+            return $continuation->close();
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -662,10 +663,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client, $continuation) use (&$called) {
+        $callback = static function($_, $continuation) use (&$called) {
             ++$called;
 
-            return $continuation->close($client);
+            return $continuation->close();
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -724,10 +725,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($a, $b, $c) use (&$called) {
+        $callback = static function($a, $b) use (&$called) {
             ++$called;
 
-            return $c;
+            return $b;
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(

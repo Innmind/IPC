@@ -26,7 +26,7 @@ enum State
     case pendingCloseOk;
 
     /**
-     * @param callable(Message, Client, Continuation): Continuation $notify
+     * @param callable(Message, Continuation): Continuation $notify
      *
      * @return Maybe<self>
      */
@@ -63,7 +63,7 @@ enum State
     }
 
     /**
-     * @param callable(Message, Client, Continuation): Continuation $notify
+     * @param callable(Message, Continuation): Continuation $notify
      *
      * @return Maybe<self>
      */
@@ -98,11 +98,11 @@ enum State
             static fn() => null,
             static fn() => throw new MessageNotSent,
         );
-        $continuation = $notify($message, $client, Continuation::start());
+        $continuation = $notify($message, Continuation::start($client));
 
         /** @var Maybe<self> */
         return $continuation->match(
-            fn($message) => $client->send($message)->map(fn() => $this),
+            fn($client, $message) => $client->send($message)->map(fn() => $this),
             static fn($client) => $client->close()->map(static fn() => self::pendingCloseOk),
             static fn() => throw new Stop,
             fn() => Maybe::just($this),

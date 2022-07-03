@@ -200,7 +200,7 @@ class UnixTest extends TestCase
             );
 
         try {
-            $server(static function($_, $__, $continuation) {
+            $server(static function($_, $continuation) {
                 return $continuation->stop();
             });
         } catch (\Exception $e) {
@@ -209,7 +209,7 @@ class UnixTest extends TestCase
 
         try {
             // check signals are not registered twice
-            $server(static function($_, $__, $continuation) {
+            $server(static function($_, $continuation) {
                 return $continuation->stop();
             });
         } catch (\Exception $e) {
@@ -238,7 +238,7 @@ class UnixTest extends TestCase
             new Timeout(10000),
         );
 
-        $this->assertNull($listen(static function($_, $__, $continuation) {
+        $this->assertNull($listen(static function($_, $continuation) {
             return $continuation->stop();
         }));
     }
@@ -264,8 +264,8 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($message, $client, $continuation) {
-            return $continuation->close($client);
+        $this->assertNull($listen(static function($message, $continuation) {
+            return $continuation->close();
         }));
     }
 
@@ -290,7 +290,7 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($_, $__, $continuation) {
+        $this->assertNull($listen(static function($_, $continuation) {
             return $continuation;
         }));
         // only test coverage can show that heartbeat messages are sent

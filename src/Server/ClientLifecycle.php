@@ -73,7 +73,7 @@ final class ClientLifecycle
     }
 
     /**
-     * @param callable(Message, Client, Continuation): Continuation $notify
+     * @param callable(Message, Continuation): Continuation $notify
      *
      * @return Maybe<self>
      */

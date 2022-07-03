@@ -100,7 +100,7 @@ final class Unix implements Server
     }
 
     /**
-     * @param callable(Message, Client, Continuation): Continuation $listen
+     * @param callable(Message, Continuation): Continuation $listen
      */
     private function loop(callable $listen): void
     {
