@@ -50,9 +50,11 @@ enum State
     private function ackStartOk(Message $message): Maybe
     {
         if ($message->equals(new ConnectionStartOk)) {
+            /** @var Maybe<self> */
             return Maybe::just(self::awaitingMessage);
         }
 
+        /** @var Maybe<self> */
         return Maybe::just($this);
     }
 
@@ -82,6 +84,7 @@ enum State
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
+            /** @var Maybe<self> */
             return Maybe::just($this);
         }
 
@@ -92,9 +95,11 @@ enum State
         $notify($message, $client);
 
         if ($client->closed()) {
+            /** @var Maybe<self> */
             return Maybe::just(self::pendingCloseOk);
         }
 
+        /** @var Maybe<self> */
         return Maybe::just($this);
     }
 
@@ -111,6 +116,7 @@ enum State
                 ->filter(static fn() => false); // always return nothing
         }
 
+        /** @var Maybe<self> */
         return Maybe::just($this);
     }
 }
