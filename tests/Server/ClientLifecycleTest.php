@@ -5,7 +5,6 @@ namespace Tests\Innmind\IPC\Server;
 
 use Innmind\IPC\{
     Server\ClientLifecycle,
-    Protocol,
     Client,
     Continuation,
     Message,
@@ -16,20 +15,13 @@ use Innmind\IPC\{
     Message\MessageReceived,
     Message\Heartbeat,
 };
-use Innmind\Socket\Server\Connection;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
     Earth\ElapsedPeriod as Timeout,
     PointInTime,
 };
-use Innmind\Stream\{
-    FailedToWriteToStream,
-    FailedToCloseStream,
-};
 use Innmind\Immutable\{
-    Str,
-    Either,
     SideEffect,
     Maybe,
 };
@@ -39,22 +31,16 @@ class ClientLifecycleTest extends TestCase
 {
     public function testGreetClientUponInstanciation()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->once())
+            ->method('send')
+            ->with(new ConnectionStart)
+            ->willReturn(Maybe::just($client));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('start'))
-            ->willReturn(Either::right($connection));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -64,20 +50,14 @@ class ClientLifecycleTest extends TestCase
 
     public function testDoNotSendHeartbeatWhenFewerThanHeartbeatPeriod()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->once())
+            ->method('send')
+            ->with(new ConnectionStart)
+            ->willReturn(Maybe::just($client));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('start'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -96,7 +76,7 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(false);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -107,26 +87,20 @@ class ClientLifecycleTest extends TestCase
 
     public function testSilenceFailureToHeartbeatClient()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->exactly(2))
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new Heartbeat],
+            )
+            ->will($this->onConsecutiveCalls(
+                Maybe::just($client),
+                Maybe::nothing(),
+            ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
-            ->will($this->onConsecutiveCalls(
-                $this->returnValue(Either::right($connection)),
-                $this->returnValue(Either::left(new FailedToWriteToStream)),
-            ));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new Heartbeat])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('heartbeat'),
-            ));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -145,7 +119,7 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -156,23 +130,20 @@ class ClientLifecycleTest extends TestCase
 
     public function testSendHeartbeatWhenLongerThanHeartbeatPeriod()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->exactly(2))
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new Heartbeat],
+            )
+            ->will($this->onConsecutiveCalls(
+                Maybe::just($client),
+                Maybe::just($client),
+            ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('heartbeat')])
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new Heartbeat])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('heartbeat'),
-            ));
         $clock
             ->expects($this->exactly(2))
             ->method('now')
@@ -191,7 +162,7 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -202,27 +173,20 @@ class ClientLifecycleTest extends TestCase
 
     public function testConsiderGarbageWhenReadingButNoMessage()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->once())
+            ->method('send')
+            ->with(new ConnectionStart)
+            ->willReturn(Maybe::just($client));
+        $client
+            ->expects($this->once())
+            ->method('read')
+            ->willReturn(Maybe::nothing());
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('start'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(Maybe::nothing());
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -240,27 +204,20 @@ class ClientLifecycleTest extends TestCase
 
     public function testDoNotNotifyWhenNotReceivedMesageOk()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->once())
+            ->method('send')
+            ->with(new ConnectionStart)
+            ->willReturn(Maybe::just($client));
+        $client
+            ->expects($this->once())
+            ->method('read')
+            ->willReturn(Maybe::just($this->createMock(Message::class)));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('start'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(Maybe::just($this->createMock(Message::class)));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -278,27 +235,20 @@ class ClientLifecycleTest extends TestCase
 
     public function testDoNotNotifyWhenHeartbeatMessage()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->once())
+            ->method('send')
+            ->with(new ConnectionStart)
+            ->willReturn(Maybe::just($client));
+        $client
+            ->expects($this->once())
+            ->method('read')
+            ->willReturn(Maybe::just(new Heartbeat));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('start'))
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStart)
-            ->willReturn(Str::of('start'));
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
-            ->willReturn(Maybe::just(new Heartbeat));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -316,34 +266,30 @@ class ClientLifecycleTest extends TestCase
 
     public function testConfirmConnectionClose()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close-ok')])
-            ->willReturn(Either::right($connection));
-        $connection
-            ->expects($this->once())
-            ->method('close')
-            ->willReturn(Either::right(new SideEffect));
-        $protocol
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new ConnectionCloseOk],
+            )
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new ConnectionCloseOk])
-            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close-ok')));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just(new ConnectionClose),
             ));
+        $client
+            ->expects($this->once())
+            ->method('close')
+            ->willReturn(Maybe::just(new SideEffect));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -367,43 +313,28 @@ class ClientLifecycleTest extends TestCase
 
     public function testNotify()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of('start')],
-                [Str::of('received')],
-                [Str::of('received')],
-            )
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->exactly(3))
-            ->method('encode')
+            ->method('send')
             ->withConsecutive(
                 [new ConnectionStart],
                 [new MessageReceived],
                 [new MessageReceived],
             )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('received'),
-                Str::of('received'),
-            ));
-        $protocol
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just($message = $this->createMock(Message::class)),
                 Maybe::just($message),
             ));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -436,43 +367,28 @@ class ClientLifecycleTest extends TestCase
 
     public function testDoNotNotifyWhenPendingCloseOkButNoConfirmation()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of('start')],
-                [Str::of('received')],
-                [Str::of('close')],
-            )
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->exactly(3))
-            ->method('encode')
+            ->method('send')
             ->withConsecutive(
                 [new ConnectionStart],
                 [new MessageReceived],
                 [new ConnectionClose],
             )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('received'),
-                Str::of('close'),
-            ));
-        $protocol
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just($this->createMock(Message::class)),
                 Maybe::just($this->createMock(Message::class)),
             ));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -503,47 +419,32 @@ class ClientLifecycleTest extends TestCase
 
     public function testCloseConfirmation()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(3))
-            ->method('write')
-            ->withConsecutive(
-                [Str::of('start')],
-                [Str::of('received')],
-                [Str::of('close')],
-            )
-            ->willReturn(Either::right($connection));
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->once())
             ->method('close')
-            ->willReturn(Either::right(new SideEffect));
-        $protocol
+            ->willReturn(Maybe::just(new SideEffect));
+        $client
             ->expects($this->exactly(3))
-            ->method('encode')
+            ->method('send')
             ->withConsecutive(
                 [new ConnectionStart],
                 [new MessageReceived],
                 [new ConnectionClose],
             )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('received'),
-                Str::of('close'),
-            ));
-        $protocol
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just($this->createMock(Message::class)),
                 Maybe::just(new ConnectionCloseOk),
             ));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -572,45 +473,34 @@ class ClientLifecycleTest extends TestCase
         $this->assertSame(1, $called);
     }
 
-    public function testCloseConfirmationEvenWhenSocketError()
+    public function testCloseConfirmationEvenWhenError()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->once())
-            ->method('close')
-            ->willReturn(Either::left(new FailedToCloseStream));
-        $connection
-            ->expects($this->atLeast(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('received')])
-            ->willReturn(Either::right($connection));
-        $protocol
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->exactly(3))
-            ->method('encode')
+            ->method('send')
             ->withConsecutive(
                 [new ConnectionStart],
                 [new MessageReceived],
                 [new ConnectionClose],
             )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('received'),
-                Str::of('close'),
-            ));
-        $protocol
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just($this->createMock(Message::class)),
                 Maybe::just(new ConnectionCloseOk),
             ));
+        $client
+            ->expects($this->once())
+            ->method('close')
+            ->willReturn(Maybe::nothing());
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -644,31 +534,27 @@ class ClientLifecycleTest extends TestCase
      */
     public function testNeverNotifyProtocolMessages($message)
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('received')])
-            ->willReturn(Either::right($connection));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new MessageReceived])
-            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('received')));
-        $protocol
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new MessageReceived],
+            )
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->exactly(3))
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->will($this->onConsecutiveCalls(
                 Maybe::just(new ConnectionStartOk),
                 Maybe::just($this->createMock(Message::class)),
                 Maybe::just($message),
             ));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -699,31 +585,27 @@ class ClientLifecycleTest extends TestCase
 
     public function testShutdown()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')])
-            ->willReturn(Either::right($connection));
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->once())
             ->method('close')
-            ->willReturn(Either::right(new SideEffect));
-        $protocol
+            ->willReturn(Maybe::just(new SideEffect));
+        $client
             ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
-        $protocol
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new ConnectionClose],
+            )
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->willReturn(Maybe::just(new ConnectionCloseOk));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -744,33 +626,29 @@ class ClientLifecycleTest extends TestCase
         $this->assertNull($lifecycle);
     }
 
-    public function testShutdownEvenWhenSocketErrorWhenClosingConnection()
+    public function testShutdownEvenWhenErrorWhenClosingConnection()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
-        $clock = $this->createMock(Clock::class);
-        $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')])
-            ->willReturn(Either::right($connection));
-        $connection
+        $client = $this->createMock(Client::class);
+        $client
             ->expects($this->once())
             ->method('close')
-            ->willReturn(Either::left(new FailedToCloseStream));
-        $protocol
+            ->willReturn(Maybe::nothing());
+        $client
             ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(Str::of('start'), Str::of('close')));
-        $protocol
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new ConnectionClose],
+            )
+            ->willReturn(Maybe::just($client));
+        $client
             ->expects($this->once())
-            ->method('decode')
-            ->with($connection)
+            ->method('read')
             ->willReturn(Maybe::just(new ConnectionCloseOk));
+        $clock = $this->createMock(Clock::class);
+        $heartbeat = new Timeout(1000);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );
@@ -793,28 +671,22 @@ class ClientLifecycleTest extends TestCase
 
     public function testConsiderToBeGarbageCollectedWhenFailToClose()
     {
-        $connection = $this->createMock(Connection::class);
-        $protocol = $this->createMock(Protocol::class);
+        $client = $this->createMock(Client::class);
+        $client
+            ->expects($this->exactly(2))
+            ->method('send')
+            ->withConsecutive(
+                [new ConnectionStart],
+                [new ConnectionClose],
+            )
+            ->will($this->onConsecutiveCalls(
+                $this->returnValue(Maybe::just($client)),
+                $this->returnValue(Maybe::nothing()),
+            ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
-        $connection
-            ->expects($this->exactly(2))
-            ->method('write')
-            ->withConsecutive([Str::of('start')], [Str::of('close')])
-            ->will($this->onConsecutiveCalls(
-                $this->returnValue(Either::right($connection)),
-                $this->returnValue(Either::left(new FailedToWriteToStream)),
-            ));
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStart], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start'),
-                Str::of('close'),
-            ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+        $lifecycle = ClientLifecycle::of($client, $clock, $heartbeat)->match(
             static fn($lifecycle) => $lifecycle,
             static fn() => null,
         );

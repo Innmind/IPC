@@ -16,6 +16,11 @@ interface Client
     public function send(Message $message): Maybe;
 
     /**
+     * @return Maybe<Message>
+     */
+    public function read(): Maybe;
+
+    /**
      * Close the underlying connection
      *
      * @return Maybe<SideEffect> Returns nothing when it fails to close properly

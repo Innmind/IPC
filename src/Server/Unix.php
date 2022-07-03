@@ -137,8 +137,7 @@ final class Unix implements Server
                         ->accept()
                         ->flatMap(
                             fn($connection) => ClientLifecycle::of(
-                                $connection,
-                                $this->protocol,
+                                new Client\Unix($connection, $this->protocol),
                                 $this->clock,
                                 $this->heartbeat,
                             )->map(

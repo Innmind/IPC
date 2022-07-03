@@ -41,6 +41,11 @@ final class Unix implements Client
             ->map(fn() => $this);
     }
 
+    public function read(): Maybe
+    {
+        return $this->protocol->decode($this->connection);
+    }
+
     public function close(): Maybe
     {
         return $this->connection->close()->maybe();

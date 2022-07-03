@@ -5,7 +5,6 @@ namespace Innmind\IPC\Server;
 
 use Innmind\IPC\{
     Server\ClientLifecycle\State,
-    Protocol,
     Message,
     Message\ConnectionStart,
     Message\ConnectionClose,
@@ -13,7 +12,6 @@ use Innmind\IPC\{
     Client,
     Continuation,
 };
-use Innmind\Socket\Server\Connection;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
@@ -23,8 +21,6 @@ use Innmind\Immutable\Maybe;
 
 final class ClientLifecycle
 {
-    private Connection $connection;
-    private Protocol $protocol;
     private Clock $clock;
     private Client $client;
     private ElapsedPeriod $heartbeat;
@@ -32,16 +28,12 @@ final class ClientLifecycle
     private State $state;
 
     private function __construct(
-        Connection $connection,
-        Protocol $protocol,
         Clock $clock,
         ElapsedPeriod $heartbeat,
         Client $client,
         PointInTime $lastHeartbeat,
         State $state,
     ) {
-        $this->connection = $connection;
-        $this->protocol = $protocol;
         $this->clock = $clock;
         $this->heartbeat = $heartbeat;
         $this->client = $client;
@@ -53,18 +45,13 @@ final class ClientLifecycle
      * @return Maybe<self>
      */
     public static function of(
-        Connection $connection,
-        Protocol $protocol,
+        Client $client,
         Clock $clock,
         ElapsedPeriod $heartbeat,
     ): Maybe {
-        $client = new Client\Unix($connection, $protocol);
-
         return $client
             ->send(new ConnectionStart)
             ->map(static fn($client) => new self(
-                $connection,
-                $protocol,
                 $clock,
                 $heartbeat,
                 $client,
@@ -81,6 +68,7 @@ final class ClientLifecycle
     public function notify(callable $notify): Maybe
     {
         return $this
+            ->client
             ->read()
             ->flatMap(fn($message) => $this->state->actUpon(
                 $this->client,
@@ -88,8 +76,6 @@ final class ClientLifecycle
                 $notify,
             ))
             ->map(fn($state) => new self(
-                $this->connection,
-                $this->protocol,
                 $this->clock,
                 $this->heartbeat,
                 $this->client,
@@ -133,21 +119,11 @@ final class ClientLifecycle
     private function pendingCloseOk(): self
     {
         return new self(
-            $this->connection,
-            $this->protocol,
             $this->clock,
             $this->heartbeat,
             $this->client,
             $this->lastHeartbeat,
             State::pendingCloseOk,
         );
-    }
-
-    /**
-     * @return Maybe<Message>
-     */
-    private function read(): Maybe
-    {
-        return $this->protocol->decode($this->connection);
     }
 }
