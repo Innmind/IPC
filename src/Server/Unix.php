@@ -6,6 +6,9 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
+    Client,
+    Message,
+    Continuation,
     Exception\Stop,
     Exception\RuntimeException,
 };
@@ -96,6 +99,9 @@ final class Unix implements Server
         }
     }
 
+    /**
+     * @param callable(Message, Client, Continuation): Continuation $listen
+     */
     private function loop(callable $listen): void
     {
         $server = $this->sockets->open($this->address)->match(

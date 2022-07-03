@@ -57,7 +57,7 @@ final class Unix implements Client
         }
     }
 
-    public function closed(): bool
+    private function closed(): bool
     {
         return $this->closed || $this->connection->closed();
     }

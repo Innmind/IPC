@@ -14,6 +14,5 @@ $os = Factory::build();
 $ipc = IPC::build($os);
 $ipc->listen(new Name('server'))(static function($message, $client): void {
     $client->send($message);
-    $client->close();
     throw new Stop;
 });

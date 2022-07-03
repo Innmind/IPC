@@ -403,7 +403,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(5))
+            ->expects($this->exactly(3))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -443,10 +443,12 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = function($a, $b) use (&$called, $message) {
+        $callback = function($a, $b, $c) use (&$called, $message) {
             ++$called;
             $this->assertSame($message, $a);
             $this->assertInstanceOf(Client::class, $b);
+
+            return $c;
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -514,9 +516,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client) use (&$called) {
+        $callback = static function($_, $client, $continuation) use (&$called) {
             ++$called;
-            $client->close();
+
+            return $continuation->close($client);
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -588,9 +591,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client) use (&$called) {
+        $callback = static function($_, $client, $continuation) use (&$called) {
             ++$called;
-            $client->close();
+
+            return $continuation->close($client);
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -658,9 +662,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($_, $client) use (&$called) {
+        $callback = static function($_, $client, $continuation) use (&$called) {
             ++$called;
-            $client->close();
+
+            return $continuation->close($client);
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
@@ -691,7 +696,7 @@ class ClientLifecycleTest extends TestCase
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $connection
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(2))
             ->method('closed')
             ->willReturn(false);
         $connection
@@ -719,8 +724,10 @@ class ClientLifecycleTest extends TestCase
             static fn() => null,
         );
         $called = 0;
-        $callback = static function($a, $b) use (&$called) {
+        $callback = static function($a, $b, $c) use (&$called) {
             ++$called;
+
+            return $c;
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(

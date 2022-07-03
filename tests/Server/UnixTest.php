@@ -265,8 +265,8 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($message, $client) {
-            $client->close();
+        $this->assertNull($listen(static function($message, $client, $continuation) {
+            return $continuation->close($client);
         }));
     }
 
@@ -291,7 +291,8 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function() {
+        $this->assertNull($listen(static function($_, $__, $continuation) {
+            return $continuation;
         }));
         // only test coverage can show that heartbeat messages are sent
     }

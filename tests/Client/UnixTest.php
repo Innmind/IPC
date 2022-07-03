@@ -55,7 +55,6 @@ class UnixTest extends TestCase
             static fn($client) => $client,
             static fn() => null,
         ));
-        $this->assertFalse($client->closed());
     }
 
     public function testClose()
@@ -75,12 +74,14 @@ class UnixTest extends TestCase
             ->with(new ConnectionClose)
             ->willReturn(Str::of('watev'));
 
-        $this->assertFalse($client->closed());
         $this->assertInstanceOf(SideEffect::class, $client->close()->match(
             static fn($sideEffect) => $sideEffect,
             static fn() => null,
         ));
-        $this->assertTrue($client->closed());
+        $this->assertInstanceOf(SideEffect::class, $client->close()->match(
+            static fn($sideEffect) => $sideEffect,
+            static fn() => null,
+        ));
     }
 
     public function testDoesntSendOnceClosed()
@@ -109,7 +110,6 @@ class UnixTest extends TestCase
             static fn($client) => $client,
             static fn() => null,
         ));
-        $this->assertTrue($client->closed());
     }
 
     public function testDoesntReCloseIfAlreadyClosed()
@@ -137,7 +137,6 @@ class UnixTest extends TestCase
             static fn($sideEffect) => $sideEffect,
             static fn() => null,
         ));
-        $this->assertTrue($client->closed());
     }
 
     public function testConsideredClientClosedWhenConnectionClosed()
@@ -150,8 +149,14 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('closed')
             ->willReturn(true);
+        $connection
+            ->expects($this->never())
+            ->method('write');
 
-        $this->assertTrue($client->closed());
+        $this->assertNull($client->send($this->createMock(Message::class))->match(
+            static fn($client) => $client,
+            static fn() => null,
+        ));
     }
 
     public function testReturnNothingWhenCantSendMessageDueToSocketError()
@@ -199,6 +204,5 @@ class UnixTest extends TestCase
             static fn($sideEffect) => $sideEffect,
             static fn() => null,
         ));
-        $this->assertTrue($client->closed());
     }
 }

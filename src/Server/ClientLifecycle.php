@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Message\ConnectionStart,
     Message\Heartbeat,
     Client,
+    Continuation,
 };
 use Innmind\Socket\Server\Connection;
 use Innmind\TimeContinuum\{
@@ -72,6 +73,8 @@ final class ClientLifecycle
     }
 
     /**
+     * @param callable(Message, Client, Continuation): Continuation $notify
+     *
      * @return Maybe<self>
      */
     public function notify(callable $notify): Maybe

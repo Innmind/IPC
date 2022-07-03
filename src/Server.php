@@ -6,7 +6,7 @@ namespace Innmind\IPC;
 interface Server
 {
     /**
-     * @param callable(Message, Client): void $listen
+     * @param callable(Message, Client, Continuation): Continuation $listen
      */
     public function __invoke(callable $listen): void;
 }

@@ -5,6 +5,7 @@ namespace Innmind\IPC\Server\ClientLifecycle;
 
 use Innmind\IPC\{
     Client,
+    Continuation,
     Message,
     Message\ConnectionStart,
     Message\ConnectionStartOk,
@@ -24,6 +25,8 @@ enum State
     case pendingCloseOk;
 
     /**
+     * @param callable(Message, Client, Continuation): Continuation $notify
+     *
      * @return Maybe<self>
      */
     public function actUpon(
@@ -59,6 +62,8 @@ enum State
     }
 
     /**
+     * @param callable(Message, Client, Continuation): Continuation $notify
+     *
      * @return Maybe<self>
      */
     private function handleMessage(
@@ -92,15 +97,13 @@ enum State
             static fn() => null,
             static fn() => throw new MessageNotSent,
         );
-        $notify($message, $client);
-
-        if ($client->closed()) {
-            /** @var Maybe<self> */
-            return Maybe::just(self::pendingCloseOk);
-        }
+        $continuation = $notify($message, $client, Continuation::start());
 
         /** @var Maybe<self> */
-        return Maybe::just($this);
+        return $continuation->match(
+            static fn($client) => $client->close()->map(static fn() => self::pendingCloseOk),
+            fn() => Maybe::just($this),
+        );
     }
 
     /**
