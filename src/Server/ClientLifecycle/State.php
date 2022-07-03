@@ -15,28 +15,23 @@ use Innmind\IPC\{
     Exception\MessageNotSent,
 };
 use Innmind\Socket\Server\Connection;
+use Innmind\Immutable\Maybe;
 
 enum State
 {
     case pendingStartOk;
     case awaitingMessage;
     case pendingCloseOk;
-    case garbage;
 
-    public function toBeGarbageCollected(): bool
-    {
-        return match ($this) {
-            self::garbage => true,
-            default => false,
-        };
-    }
-
+    /**
+     * @return Maybe<self>
+     */
     public function actUpon(
         Client $client,
         Connection $connection,
         Message $message,
         callable $notify,
-    ): self {
+    ): Maybe {
         return match ($this) {
             self::pendingStartOk => $this->ackStartOk($message),
             self::awaitingMessage => $this->handleMessage(
@@ -46,33 +41,36 @@ enum State
                 $notify,
             ),
             self::pendingCloseOk => $this->ackCloseOk($connection, $message),
-            self::garbage => $this,
         };
     }
 
-    private function ackStartOk(Message $message): self
+    /**
+     * @return Maybe<self>
+     */
+    private function ackStartOk(Message $message): Maybe
     {
         if ($message->equals(new ConnectionStartOk)) {
-            return self::awaitingMessage;
+            return Maybe::just(self::awaitingMessage);
         }
 
-        return $this;
+        return Maybe::just($this);
     }
 
+    /**
+     * @return Maybe<self>
+     */
     private function handleMessage(
         Client $client,
         Connection $connection,
         Message $message,
         callable $notify,
-    ): self {
+    ): Maybe {
         if ($message->equals(new ConnectionClose)) {
+            /** @var Maybe<self> */
             return $client
                 ->send(new ConnectionCloseOk)
                 ->flatMap(static fn() => $connection->close()->maybe())
-                ->match(
-                    static fn() => self::garbage,
-                    static fn() => self::garbage,
-                );
+                ->filter(static fn() => false); // always return nothing
         }
 
         if (
@@ -84,7 +82,7 @@ enum State
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
-            return $this;
+            return Maybe::just($this);
         }
 
         $_ = $client->send(new MessageReceived)->match(
@@ -94,21 +92,25 @@ enum State
         $notify($message, $client);
 
         if ($client->closed()) {
-            return self::pendingCloseOk;
+            return Maybe::just(self::pendingCloseOk);
         }
 
-        return $this;
+        return Maybe::just($this);
     }
 
-    private function ackCloseOk(Connection $connection, Message $message): self
+    /**
+     * @return Maybe<self>
+     */
+    private function ackCloseOk(Connection $connection, Message $message): Maybe
     {
         if ($message->equals(new ConnectionCloseOk)) {
-            return $connection->close()->match(
-                static fn() => self::garbage,
-                static fn() => self::garbage,
-            );
+            /** @var Maybe<self> */
+            return $connection
+                ->close()
+                ->maybe()
+                ->filter(static fn() => false); // always return nothing
         }
 
-        return $this;
+        return Maybe::just($this);
     }
 }

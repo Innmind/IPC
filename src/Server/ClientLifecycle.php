@@ -70,39 +70,32 @@ final class ClientLifecycle
         );
     }
 
-    public function notify(callable $notify): self
+    /**
+     * @return Maybe<self>
+     */
+    public function notify(callable $notify): Maybe
     {
-        if ($this->toBeGarbageCollected()) {
-            return $this;
-        }
-
         return $this
             ->read()
-            ->match(
-                fn($message) => new self(
-                    $this->connection,
-                    $this->protocol,
-                    $this->clock,
-                    $this->heartbeat,
-                    $this->client,
-                    $this->clock->now(),
-                    $this->state->actUpon(
-                        $this->client,
-                        $this->connection,
-                        $message,
-                        $notify,
-                    ),
-                ),
-                fn() => $this->garbage(),
-            );
+            ->flatMap(fn($message) => $this->state->actUpon(
+                $this->client,
+                $this->connection,
+                $message,
+                $notify,
+            ))
+            ->map(fn($state) => new self(
+                $this->connection,
+                $this->protocol,
+                $this->clock,
+                $this->heartbeat,
+                $this->client,
+                $this->clock->now(),
+                $state,
+            ));
     }
 
     public function heartbeat(): self
     {
-        if ($this->toBeGarbageCollected()) {
-            return $this;
-        }
-
         $trigger = $this
             ->clock
             ->now()
@@ -122,21 +115,15 @@ final class ClientLifecycle
         return $this;
     }
 
-    public function shutdown(): self
+    /**
+     * @return Maybe<self>
+     */
+    public function shutdown(): Maybe
     {
-        if ($this->toBeGarbageCollected()) {
-            return $this;
-        }
-
-        return $this->client->close()->match(
-            fn() => $this->pendingCloseOk(),
-            fn() => $this->garbage(),
-        );
-    }
-
-    public function toBeGarbageCollected(): bool
-    {
-        return $this->state->toBeGarbageCollected();
+        return $this
+            ->client
+            ->close()
+            ->map(fn() => $this->pendingCloseOk());
     }
 
     private function pendingCloseOk(): self
@@ -149,19 +136,6 @@ final class ClientLifecycle
             $this->client,
             $this->lastHeartbeat,
             State::pendingCloseOk,
-        );
-    }
-
-    private function garbage(): self
-    {
-        return new self(
-            $this->connection,
-            $this->protocol,
-            $this->clock,
-            $this->heartbeat,
-            $this->client,
-            $this->lastHeartbeat,
-            State::garbage,
         );
     }
 

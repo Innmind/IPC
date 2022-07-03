@@ -155,15 +155,16 @@ final class Unix implements Server
                             static fn($lifecycle) => $lifecycle,
                             static fn() => throw new \LogicException,
                         );
-                        $lifecycle = $lifecycle->notify($listen);
-                        $this->connections = ($this->connections)($connection, $lifecycle);
+                        $newLifecycle = $lifecycle->notify($listen);
+                        $this->connections = $newLifecycle->match(
+                            fn($lifecycle) => ($this->connections)($connection, $lifecycle),
+                            fn() => $this->connections->remove($connection),
+                        );
 
-                        if ($lifecycle->toBeGarbageCollected()) {
-                            $this->connections = $this->connections->remove($connection);
-                            $watch = $watch->unwatch($connection);
-                        }
-
-                        return $watch;
+                        return $newLifecycle->match(
+                            static fn() => $watch,
+                            static fn() => $watch->unwatch($connection),
+                        );
                     },
                 );
             } catch (\Throwable $e) {
@@ -202,8 +203,12 @@ final class Unix implements Server
         }
 
         $this->shuttingDown = true;
-        $this->connections = $this->connections->map(
-            static fn($_, $client) => $client->shutdown(),
+        /** @psalm-suppress InvalidArgument Due to the empty map */
+        $this->connections = $this->connections->flatMap(
+            static fn($connection, $client) => $client->shutdown()->match(
+                static fn($client) => Map::of([$connection, $client]), // pendingCloseOk
+                static fn() => Map::of(), // can't shutdown properly, discard
+            ),
         );
     }
 
