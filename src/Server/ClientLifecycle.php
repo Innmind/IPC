@@ -10,7 +10,6 @@ use Innmind\IPC\{
     Message\ConnectionStart,
     Message\Heartbeat,
     Client,
-    Exception\MessageNotSent,
 };
 use Innmind\Socket\Server\Connection;
 use Innmind\TimeContinuum\{
@@ -48,16 +47,20 @@ final class ClientLifecycle
         $this->state = $state;
     }
 
+    /**
+     * @return Maybe<self>
+     */
     public static function of(
         Connection $connection,
         Protocol $protocol,
         Clock $clock,
         ElapsedPeriod $heartbeat,
-    ): self {
+    ): Maybe {
         $client = new Client\Unix($connection, $protocol);
 
-        return $client->send(new ConnectionStart)->match(
-            static fn($client) => new self(
+        return $client
+            ->send(new ConnectionStart)
+            ->map(static fn($client) => new self(
                 $connection,
                 $protocol,
                 $clock,
@@ -65,9 +68,7 @@ final class ClientLifecycle
                 $client,
                 $clock->now(),
                 State::pendingStartOk,
-            ),
-            static fn() => throw new MessageNotSent,
-        );
+            ));
     }
 
     /**

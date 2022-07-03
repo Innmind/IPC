@@ -14,12 +14,8 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\MessageReceived,
     Message\Heartbeat,
-    Exception\MessageNotSent,
 };
-use Innmind\Socket\{
-    Server\Connection,
-    Exception\Exception as SocketException,
-};
+use Innmind\Socket\Server\Connection;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
@@ -29,7 +25,6 @@ use Innmind\TimeContinuum\{
 use Innmind\Stream\{
     FailedToWriteToStream,
     FailedToCloseStream,
-    Exception\Exception as StreamException,
 };
 use Innmind\Immutable\{
     Str,
@@ -62,7 +57,10 @@ class ClientLifecycleTest extends TestCase
             ->with(Str::of('start'))
             ->willReturn(Either::right($connection));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
 
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
     }
@@ -105,7 +103,10 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(false);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
 
         $lifecycle = $lifecycle->heartbeat();
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
@@ -155,7 +156,10 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
 
         $lifecycle = $lifecycle->heartbeat();
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
@@ -202,7 +206,10 @@ class ClientLifecycleTest extends TestCase
             ->with($heartbeat)
             ->willReturn(true);
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
 
         $lifecycle = $lifecycle->heartbeat();
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
@@ -234,7 +241,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::nothing());
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
 
         $lifecycle = $lifecycle->notify(static function() use (&$called) {
@@ -273,7 +283,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just($this->createMock(Message::class)));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
 
         $lifecycle2 = $lifecycle->notify(static function() use (&$called) {
@@ -312,7 +325,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new Heartbeat));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
 
         $lifecycle2 = $lifecycle->notify(static function() use (&$called) {
@@ -358,7 +374,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionClose),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
         $callback = static function() use (&$called) {
             $called = true;
@@ -419,7 +438,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($message),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = 0;
         $callback = function($a, $b) use (&$called, $message) {
             ++$called;
@@ -487,7 +509,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($this->createMock(Message::class)),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
@@ -558,7 +583,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionCloseOk),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
@@ -625,7 +653,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just(new ConnectionCloseOk),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = 0;
         $callback = static function($_, $client) use (&$called) {
             ++$called;
@@ -683,7 +714,10 @@ class ClientLifecycleTest extends TestCase
                 Maybe::just($message),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = 0;
         $callback = static function($a, $b) use (&$called) {
             ++$called;
@@ -737,7 +771,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new ConnectionCloseOk));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
 
         $lifecycle = $lifecycle->shutdown()->match(
@@ -785,7 +822,10 @@ class ClientLifecycleTest extends TestCase
             ->with($connection)
             ->willReturn(Maybe::just(new ConnectionCloseOk));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
         $called = false;
 
         $lifecycle = $lifecycle->shutdown()->match(
@@ -830,7 +870,10 @@ class ClientLifecycleTest extends TestCase
                 Str::of('close'),
             ));
 
-        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat);
+        $lifecycle = ClientLifecycle::of($connection, $protocol, $clock, $heartbeat)->match(
+            static fn($lifecycle) => $lifecycle,
+            static fn() => null,
+        );
 
         $this->assertNull($lifecycle->shutdown()->match(
             static fn($lifecycle) => $lifecycle,

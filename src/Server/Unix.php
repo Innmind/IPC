@@ -127,19 +127,26 @@ final class Unix implements Server
                 }
 
                 if ($ready->toRead()->contains($server) && !$this->shuttingDown) {
-                    $connection = $server->accept()->match(
-                        static fn($connection) => $connection,
-                        static fn() => throw new \LogicException,
+                    $connection = $server
+                        ->accept()
+                        ->flatMap(
+                            fn($connection) => ClientLifecycle::of(
+                                $connection,
+                                $this->protocol,
+                                $this->clock,
+                                $this->heartbeat,
+                            )->map(
+                                static fn($lifecycle) => [$connection, $lifecycle],
+                            ),
+                        );
+
+                    $this->connections = $connection->match(
+                        fn($pair) => ($this->connections)($pair[0], $pair[1]),
+                        fn() => $this->connections,
                     );
-                    $watch = $watch->forRead($connection);
-                    $this->connections = ($this->connections)(
-                        $connection,
-                        ClientLifecycle::of(
-                            $connection,
-                            $this->protocol,
-                            $this->clock,
-                            $this->heartbeat,
-                        ),
+                    $watch = $connection->match(
+                        static fn($pair) => $watch->forRead($pair[0]),
+                        static fn() => $watch,
                     );
                 }
 
