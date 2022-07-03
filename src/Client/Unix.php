@@ -43,7 +43,11 @@ final class Unix implements Client
 
     public function read(): Maybe
     {
-        return $this->protocol->decode($this->connection);
+        /** @var Maybe<array{Client, Message}> */
+        return $this
+            ->protocol
+            ->decode($this->connection)
+            ->map(fn($message) => [$this, $message]);
     }
 
     public function close(): Maybe

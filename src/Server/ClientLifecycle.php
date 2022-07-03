@@ -70,9 +70,9 @@ final class ClientLifecycle
         return $this
             ->client
             ->read()
-            ->flatMap(fn($message) => $this->state->actUpon(
-                $this->client,
-                $message,
+            ->flatMap(fn($pair) => $this->state->actUpon(
+                $pair[0],
+                $pair[1],
                 $notify,
             ))
             ->map(fn($pair) => new self(

@@ -16,7 +16,7 @@ interface Client
     public function send(Message $message): Maybe;
 
     /**
-     * @return Maybe<Message>
+     * @return Maybe<array{Client, Message}>
      */
     public function read(): Maybe;
 

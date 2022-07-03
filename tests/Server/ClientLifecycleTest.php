@@ -213,7 +213,7 @@ class ClientLifecycleTest extends TestCase
         $client
             ->expects($this->once())
             ->method('read')
-            ->willReturn(Maybe::just($this->createMock(Message::class)));
+            ->willReturn(Maybe::just([$client, $this->createMock(Message::class)]));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
 
@@ -244,7 +244,7 @@ class ClientLifecycleTest extends TestCase
         $client
             ->expects($this->once())
             ->method('read')
-            ->willReturn(Maybe::just(new Heartbeat));
+            ->willReturn(Maybe::just([$client, new Heartbeat]));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
 
@@ -279,8 +279,8 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(2))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just(new ConnectionClose),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, new ConnectionClose]),
             ));
         $client
             ->expects($this->once())
@@ -327,9 +327,9 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(3))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($message = $this->createMock(Message::class)),
-                Maybe::just($message),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, $message = $this->createMock(Message::class)]),
+                Maybe::just([$client, $message]),
             ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
@@ -381,9 +381,9 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(3))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($this->createMock(Message::class)),
-                Maybe::just($this->createMock(Message::class)),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, $this->createMock(Message::class)]),
+                Maybe::just([$client, $this->createMock(Message::class)]),
             ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
@@ -437,9 +437,9 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(3))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($this->createMock(Message::class)),
-                Maybe::just(new ConnectionCloseOk),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, $this->createMock(Message::class)]),
+                Maybe::just([$client, new ConnectionCloseOk]),
             ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
@@ -489,9 +489,9 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(3))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($this->createMock(Message::class)),
-                Maybe::just(new ConnectionCloseOk),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, $this->createMock(Message::class)]),
+                Maybe::just([$client, new ConnectionCloseOk]),
             ));
         $client
             ->expects($this->once())
@@ -547,9 +547,9 @@ class ClientLifecycleTest extends TestCase
             ->expects($this->exactly(3))
             ->method('read')
             ->will($this->onConsecutiveCalls(
-                Maybe::just(new ConnectionStartOk),
-                Maybe::just($this->createMock(Message::class)),
-                Maybe::just($message),
+                Maybe::just([$client, new ConnectionStartOk]),
+                Maybe::just([$client, $this->createMock(Message::class)]),
+                Maybe::just([$client, $message]),
             ));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
@@ -601,7 +601,7 @@ class ClientLifecycleTest extends TestCase
         $client
             ->expects($this->once())
             ->method('read')
-            ->willReturn(Maybe::just(new ConnectionCloseOk));
+            ->willReturn(Maybe::just([$client, new ConnectionCloseOk]));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
 
@@ -644,7 +644,7 @@ class ClientLifecycleTest extends TestCase
         $client
             ->expects($this->once())
             ->method('read')
-            ->willReturn(Maybe::just(new ConnectionCloseOk));
+            ->willReturn(Maybe::just([$client, new ConnectionCloseOk]));
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
 
