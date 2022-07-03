@@ -51,7 +51,6 @@ final class Unix implements Server
     /** @psalm-suppress PropertyNotSetInConstructor Property never accessed before initialization */
     private PointInTime $lastReceivedData;
     private \Closure $shutdown;
-    private bool $hadActivity = false;
     private bool $shuttingDown = false;
     private bool $signalsRegistered = false;
 
@@ -82,7 +81,6 @@ final class Unix implements Server
     {
         // reset state in case the server is restarted
         $this->connections = $this->connections->clear();
-        $this->hadActivity = false;
         $this->shuttingDown = false;
         $this->lastReceivedData = $this->clock->now();
         $this->registerSignals();
