@@ -346,7 +346,8 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function() {
+        $this->assertNull($listen(static function($_, $continuation) {
+            return $continuation;
         }));
         $client->wait();
         $this->assertSame('', $client->output()->toString());
