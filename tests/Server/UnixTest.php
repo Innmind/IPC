@@ -333,7 +333,8 @@ class UnixTest extends TestCase
         $processes = $os->control()->processes();
         $client = $processes->execute(
             Command::foreground('php')
-                ->withArgument('fixtures/self-closing-client.php'),
+                ->withArgument('fixtures/self-closing-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
