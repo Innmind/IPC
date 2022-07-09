@@ -19,7 +19,7 @@ use Innmind\MediaType\MediaType;
 use Innmind\Immutable\{
     Str,
     Either,
-    sideEffect,
+    SideEffect,
 };
 use PHPUnit\Framework\TestCase;
 
