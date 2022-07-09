@@ -347,7 +347,6 @@ class UnixTest extends TestCase
         );
 
         $this->assertNull($listen(static function($_, $continuation) {
-            dump($_);
             return $continuation;
         }));
         $client->wait();
