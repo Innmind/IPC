@@ -102,6 +102,8 @@ final class Unix implements Server
                 throw $e;
             }
         } while (!\is_null($iteration));
+
+        $this->unregisterSignals($shutdown);
     }
 
     /**
