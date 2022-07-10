@@ -137,10 +137,23 @@ final class Connections
             );
     }
 
-    public function close(): void
+    /**
+     * @return Maybe<SideEffect>
+     */
+    public function close(): Maybe
     {
-        $_ = $this->connections->foreach(static fn($connection) => $connection->close());
-        $this->server->close();
+        return $this
+            ->connections
+            ->reduce(
+                Maybe::just(new SideEffect),
+                static fn(Maybe $maybe, $connection) => $maybe->flatMap(
+                    static fn(): Maybe => $connection
+                        ->close()
+                        ->maybe(),
+                ),
+            )
+            ->otherwise(fn() => $this->server->close()->maybe()) // force close the server even if a client could not be closed
+            ->flatMap(fn() => $this->server->close()->maybe());
     }
 
     /**

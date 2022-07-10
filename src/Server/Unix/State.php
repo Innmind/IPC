@@ -46,12 +46,9 @@ enum State
             self::shuttingDown => $connections
                 ->watch()
                 ->otherwise(
-                    static function() use ($connections) {
-                        $connections->close();
-
-                        /** @var Maybe<Active> */
-                        return Maybe::nothing();
-                    },
+                    static fn() => $connections
+                        ->close()
+                        ->filter(static fn() => false), // force to return nothing
                 ),
             self::awaitingConnection => $connections
                 ->watch()
