@@ -226,7 +226,10 @@ class ClientLifecycleTest extends TestCase
         $lifecycle2 = $lifecycle->notify(static function() use (&$called) {
             $called = true;
         })->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         );
         $this->assertEquals($lifecycle2, $lifecycle);
@@ -257,7 +260,10 @@ class ClientLifecycleTest extends TestCase
         $lifecycle2 = $lifecycle->notify(static function() use (&$called) {
             $called = true;
         })->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         );
         $this->assertEquals($lifecycle2, $lifecycle);
@@ -299,12 +305,15 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either,
             static fn() => null,
         ); // connection close
         $this->assertNull($lifecycle);
@@ -348,17 +357,26 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 1
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 2
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
@@ -400,17 +418,26 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 1
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 2
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
@@ -456,17 +483,23 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 1
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either,
             static fn() => null,
         ); // connection close ok
         $this->assertNull($lifecycle);
@@ -512,17 +545,23 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message 1
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either,
             static fn() => null,
         ); // connection close ok
         $this->assertNull($lifecycle);
@@ -566,17 +605,26 @@ class ClientLifecycleTest extends TestCase
         };
 
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // connection start
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // message
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);
         $lifecycle = $lifecycle->notify($callback)->match(
-            static fn($lifecycle) => $lifecycle,
+            static fn($either) => $either->match(
+                static fn($lifecycle) => $lifecycle,
+                static fn() => null,
+            ),
             static fn() => null,
         ); // protocol message
         $this->assertInstanceOf(ClientLifecycle::class, $lifecycle);

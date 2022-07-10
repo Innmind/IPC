@@ -10,7 +10,6 @@ use Innmind\IPC\{
     Client,
     Protocol,
     Exception\RuntimeException,
-    Exception\Stop,
 };
 use Innmind\TimeContinuum\{
     Clock,

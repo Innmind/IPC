@@ -17,7 +17,10 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     PointInTime,
 };
-use Innmind\Immutable\Maybe;
+use Innmind\Immutable\{
+    Maybe,
+    Either,
+};
 
 final class ClientLifecycle
 {
@@ -63,25 +66,23 @@ final class ClientLifecycle
     /**
      * @param callable(Message, Continuation): Continuation $notify
      *
-     * @return Maybe<self>
+     * @return Maybe<Either<self, self>> Left side of Either means the notify asked the server to stop
      */
     public function notify(callable $notify): Maybe
     {
         return $this
             ->client
             ->read()
-            ->flatMap(fn($pair) => $this->state->actUpon(
-                $pair[0],
-                $pair[1],
+            ->flatMap(fn($tuple) => $this->state->actUpon(
+                $tuple[0],
+                $tuple[1],
                 $notify,
             ))
-            ->map(fn($pair) => new self(
-                $this->clock,
-                $this->heartbeat,
-                $pair[0],
-                $this->clock->now(),
-                $pair[1],
-            ));
+            ->map(
+                fn($either) => $either
+                    ->map($this->update(...))
+                    ->leftMap($this->update(...)),
+            );
     }
 
     public function heartbeat(): self
@@ -132,6 +133,20 @@ final class ClientLifecycle
             $client,
             $this->lastHeartbeat,
             State::pendingCloseOk,
+        );
+    }
+
+    /**
+     * @param array{Client, State} $tuple
+     */
+    private function update(array $tuple): self
+    {
+        return new self(
+            $this->clock,
+            $this->heartbeat,
+            $tuple[0],
+            $this->clock->now(),
+            $tuple[1],
         );
     }
 }

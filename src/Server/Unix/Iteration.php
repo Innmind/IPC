@@ -9,7 +9,6 @@ use Innmind\IPC\{
     Message,
     Continuation,
     Protocol,
-    Exception\Stop,
 };
 use Innmind\TimeContinuum\{
     Clock,
@@ -110,14 +109,10 @@ final class Iteration
         );
         $connections = $this->heartbeat($connections, $active->clients());
 
-        try {
-            $connections = $this->notify($active->clients(), $connections, $listen);
-        } catch (Stop $e) {
-            return Maybe::just($this->shutdown($connections));
-        }
-
         return $this
-            ->monitorTimeout($connections)
+            ->notify($active->clients(), $connections, $listen)
+            ->leftMap($this->shutdown(...))
+            ->flatMap($this->monitorTimeout(...))
             ->map($this->monitorTermination(...))
             ->match(
                 fn($connections) => $connections->map(fn($connections) => new self(
@@ -157,17 +152,22 @@ final class Iteration
     /**
      * @param Set<Connection> $active
      * @param callable(Message, Continuation): Continuation $listen
+     *
+     * @return Either<Connections, Connections> Left side means the connections must be shutdown
      */
     private function notify(
         Set $active,
         Connections $connections,
         callable $listen,
-    ): Connections {
+    ): Either {
+        /**
+         * @psalm-suppress MixedArgumentTypeCoercion
+         * @var Either<Connections, Connections>
+         */
         return $active->reduce(
-            $connections,
-            static fn(Connections $connections, $connection) => $connections->notify(
-                $connection,
-                $listen,
+            Either::right($connections),
+            static fn(Either $either, $connection) => $either->flatMap(
+                static fn(Connections $connections) => $connections->notify($connection, $listen),
             ),
         );
     }

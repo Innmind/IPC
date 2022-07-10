@@ -13,9 +13,11 @@ use Innmind\IPC\{
     Message\ConnectionCloseOk,
     Message\MessageReceived,
     Message\Heartbeat,
-    Exception\Stop,
 };
-use Innmind\Immutable\Maybe;
+use Innmind\Immutable\{
+    Maybe,
+    Either,
+};
 
 enum State
 {
@@ -26,15 +28,19 @@ enum State
     /**
      * @param callable(Message, Continuation): Continuation $notify
      *
-     * @return Maybe<array{Client, self}>
+     * @return Maybe<Either<array{Client, self}, array{Client, self}>> Left side of Either means stop th server
      */
     public function actUpon(
         Client $client,
         Message $message,
         callable $notify,
     ): Maybe {
+        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
         return match ($this) {
-            self::pendingStartOk => $this->ackStartOk($client, $message),
+            self::pendingStartOk => Maybe::just(Either::right([
+                $client,
+                $this->ackStartOk($message),
+            ])),
             self::awaitingMessage => $this->handleMessage(
                 $client,
                 $message,
@@ -44,24 +50,19 @@ enum State
         };
     }
 
-    /**
-     * @return Maybe<array{Client, self}>
-     */
-    private function ackStartOk(Client $client, Message $message): Maybe
+    private function ackStartOk(Message $message): self
     {
         if ($message->equals(new ConnectionStartOk)) {
-            /** @var Maybe<array{Client, self}> */
-            return Maybe::just([$client, self::awaitingMessage]);
+            return self::awaitingMessage;
         }
 
-        /** @var Maybe<array{Client, self}> */
-        return Maybe::just([$client, $this]);
+        return $this;
     }
 
     /**
      * @param callable(Message, Continuation): Continuation $notify
      *
-     * @return Maybe<array{Client, self}>
+     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
      */
     private function handleMessage(
         Client $client,
@@ -69,7 +70,7 @@ enum State
         callable $notify,
     ): Maybe {
         if ($message->equals(new ConnectionClose)) {
-            /** @var Maybe<array{Client, self}> */
+            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
             return $client
                 ->send(new ConnectionCloseOk)
                 ->flatMap(static fn($client) => $client->close())
@@ -85,8 +86,8 @@ enum State
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
-            /** @var Maybe<array{Client, self}> */
-            return Maybe::just([$client, $this]);
+            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+            return Maybe::just(Either::right([$client, $this]));
         }
 
         return $client
@@ -96,36 +97,36 @@ enum State
     }
 
     /**
-     * @return Maybe<array{Client, self}>
+     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
      */
     private function ackCloseOk(Client $client, Message $message): Maybe
     {
         if ($message->equals(new ConnectionCloseOk)) {
-            /** @var Maybe<array{Client, self}> */
+            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
             return $client
                 ->close()
                 ->filter(static fn() => false); // always return nothing
         }
 
-        /** @var Maybe<array{Client, self}> */
-        return Maybe::just([$client, $this]);
+        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+        return Maybe::just(Either::right([$client, $this]));
     }
 
     /**
-     * @return Maybe<array{Client, self}>
+     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
      */
     private function determineNextState(Continuation $continuation): Maybe
     {
-        /** @var Maybe<array{Client, self}> */
+        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
         return $continuation->match(
             fn($client, $message) => $client
                 ->send($message)
-                ->map(fn($client) => [$client, $this]),
+                ->map(fn($client) => Either::right([$client, $this])),
             static fn($client) => $client
                 ->send(new ConnectionClose)
-                ->map(static fn($client) => [$client, self::pendingCloseOk]),
-            static fn() => throw new Stop,
-            fn($client) => Maybe::just([$client, $this]),
+                ->map(static fn($client) => Either::right([$client, self::pendingCloseOk])),
+            fn($client) => Maybe::just(Either::left([$client, $this])),
+            fn($client) => Maybe::just(Either::right([$client, $this])),
         );
     }
 }
