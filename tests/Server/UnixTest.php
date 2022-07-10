@@ -20,7 +20,6 @@ use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
     Earth\ElapsedPeriod as Timeout,
-    PointInTime,
 };
 use Innmind\Socket\{
     Address\Unix as Address,
@@ -101,54 +100,22 @@ class UnixTest extends TestCase
 
     public function testStopWhenNoActivityInGivenPeriod()
     {
-        $receive = new Unix(
-            $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
-            $clock = $this->createMock(Clock::class),
-            $this->createMock(Signals::class),
-            $address = Address::of('/tmp/foo.sock'),
-            $heartbeat = new Timeout(10),
-            $timeout = $this->createMock(ElapsedPeriod::class),
-        );
-        $sockets
-            ->expects($this->once())
-            ->method('open')
-            ->willReturn(ServerSocket\Unix::recoverable($address));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($heartbeat)
-            ->willReturn(Select::timeoutAfter($heartbeat));
-        $clock
-            ->expects($this->exactly(3))
-            ->method('now')
-            ->will($this->onConsecutiveCalls(
-                $start = $this->createMock(PointInTime::class),
-                $firstIteration = $this->createMock(PointInTime::class),
-                $secondIteration = $this->createMock(PointInTime::class),
-            ));
-        $firstIteration
-            ->expects($this->once())
-            ->method('elapsedSince')
-            ->with($start)
-            ->willReturn($duration = $this->createMock(ElapsedPeriod::class));
-        $duration
-            ->expects($this->once())
-            ->method('longerThan')
-            ->with($timeout)
-            ->willReturn(false);
-        $secondIteration
-            ->expects($this->once())
-            ->method('elapsedSince')
-            ->with($start)
-            ->willReturn($duration = $this->createMock(ElapsedPeriod::class));
-        $duration
-            ->expects($this->once())
-            ->method('longerThan')
-            ->with($timeout)
-            ->willReturn(true);
+        $os = Factory::build();
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
 
-        $this->assertNull($receive(static function() {}));
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            $os->process()->signals(),
+            Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
+            new Timeout(100),
+            new Timeout(1000),
+        );
+
+        $this->assertNull($listen(static function($_, $continuation) {
+            return $continuation;
+        }));
     }
 
     public function testInstallSignalsHandlerOnlyWhenStartingTheServer()
@@ -188,9 +155,15 @@ class UnixTest extends TestCase
             return true;
         });
         $signals
-            ->expects($this->exactly(6))
+            ->expects($this->exactly(12))
             ->method('listen')
             ->withConsecutive(
+                [Signal::hangup, $callback],
+                [Signal::interrupt, $callback],
+                [Signal::abort, $callback],
+                [Signal::terminate, $callback],
+                [Signal::terminalStop, $callback],
+                [Signal::alarm, $callback],
                 [Signal::hangup, $callback],
                 [Signal::interrupt, $callback],
                 [Signal::abort, $callback],

@@ -1,0 +1,207 @@
+<?php
+declare(strict_types = 1);
+
+namespace Innmind\IPC\Server\Unix;
+
+use Innmind\IPC\{
+    Server\Connections,
+    Server\Connections\Active,
+    Message,
+    Continuation,
+    Protocol,
+    Exception\Stop,
+};
+use Innmind\TimeContinuum\{
+    Clock,
+    PointInTime,
+    ElapsedPeriod,
+};
+use Innmind\Socket\Server\Connection;
+use Innmind\Immutable\{
+    Maybe,
+    Set,
+    Either,
+};
+
+final class Iteration
+{
+    private Protocol $protocol;
+    private Clock $clock;
+    private Connections $connections;
+    private ElapsedPeriod $heartbeat;
+    private ?ElapsedPeriod $timeout;
+    private PointInTime $lastActivity;
+    private State $state;
+
+    private function __construct(
+        Protocol $protocol,
+        Clock $clock,
+        Connections $connections,
+        ElapsedPeriod $heartbeat,
+        ?ElapsedPeriod $timeout,
+        PointInTime $lastActivity,
+        State $state,
+    ) {
+        $this->protocol = $protocol;
+        $this->clock = $clock;
+        $this->connections = $connections;
+        $this->heartbeat = $heartbeat;
+        $this->timeout = $timeout;
+        $this->lastActivity = $lastActivity;
+        $this->state = $state;
+    }
+
+    public static function first(
+        Protocol $protocol,
+        Clock $clock,
+        Connections $connections,
+        ElapsedPeriod $heartbeat,
+        ?ElapsedPeriod $timeout,
+    ): self {
+        return new self(
+            $protocol,
+            $clock,
+            $connections,
+            $heartbeat,
+            $timeout,
+            $clock->now(),
+            State::awaitingConnection,
+        );
+    }
+
+    /**
+     * @param callable(Message, Continuation): Continuation $listen
+     *
+     * @return Maybe<self>
+     */
+    public function next(callable $listen): Maybe
+    {
+        return $this
+            ->state
+            ->watch($this->connections)
+            ->map(fn($active) => $this->act($active, $listen));
+    }
+
+    /**
+     * This method mutates the object instead of returning a new one because it
+     * is called when the process is signaled and the callback cannot mutate the
+     * variable `$iteration` in `Server\Unix`
+     */
+    public function startShutdown(): void
+    {
+        $this->connections = $this->state->shutdown($this->connections);
+        $this->lastActivity = $this->clock->now();
+        $this->state = State::shuttingDown;
+    }
+
+    /**
+     * @param callable(Message, Continuation): Continuation $listen
+     */
+    private function act(Active $active, callable $listen): self
+    {
+        $connections = $this->state->acceptConnection(
+            $active->server(),
+            $this->connections,
+            $this->protocol,
+            $this->clock,
+            $this->heartbeat,
+        );
+        $connections = $this->heartbeat($connections, $active->clients());
+
+        try {
+            $connections = $this->notify($active->clients(), $connections, $listen);
+        } catch (Stop $e) {
+            return $this->shutdown($connections);
+        }
+
+        return $this
+            ->monitorTimeout($connections)
+            ->map($this->monitorTermination(...))
+            ->match(
+                fn($connections) => new self(
+                    $this->protocol,
+                    $this->clock,
+                    $connections,
+                    $this->heartbeat,
+                    $this->timeout,
+                    match ($active->clients()->empty()) {
+                        true => $this->lastActivity,
+                        false => $this->clock->now(),
+                    },
+                    $this->state,
+                ),
+                static fn($shuttingDown) => $shuttingDown,
+            );
+    }
+
+    /**
+     * @param Set<Connection> $active
+     */
+    private function heartbeat(
+        Connections $connections,
+        Set $active,
+    ): Connections {
+        // send heartbeat message for clients not found in the active sockets
+        return $connections->map(
+            static fn($connection, $client) => $active
+                ->find(static fn($active) => $active === $connection)
+                ->match(
+                    static fn() => $client,
+                    static fn() => $client->heartbeat(),
+                ),
+        );
+    }
+
+    /**
+     * @param Set<Connection> $active
+     * @param callable(Message, Continuation): Continuation $listen
+     */
+    private function notify(
+        Set $active,
+        Connections $connections,
+        callable $listen,
+    ): Connections {
+        return $active->reduce(
+            $connections,
+            static fn(Connections $connections, $connection) => $connections->notify(
+                $connection,
+                $listen,
+            ),
+        );
+    }
+
+    private function shutdown(Connections $connections): self
+    {
+        return new self(
+            $this->protocol,
+            $this->clock,
+            $this->state->shutdown($connections),
+            $this->heartbeat,
+            $this->timeout,
+            $this->clock->now(),
+            State::shuttingDown,
+        );
+    }
+
+    /**
+     * @return Either<self, Connections>
+     */
+    private function monitorTimeout(Connections $connections): Either
+    {
+        if (!$this->timeout) {
+            return Either::right($connections);
+        }
+
+        $iterationDuration = $this->clock->now()->elapsedSince($this->lastActivity);
+
+        return match ($this->timeout->longerThan($iterationDuration)) {
+            true => Either::right($connections),
+            false => Either::left($this->shutdown($connections)),
+        };
+    }
+
+    private function monitorTermination(Connections $connections): Connections
+    {
+        return $this->state->terminate($connections);
+    }
+}
