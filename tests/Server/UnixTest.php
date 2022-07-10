@@ -24,13 +24,12 @@ use Innmind\TimeContinuum\{
 use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
-    Exception\Exception as SocketException,
 };
 use Innmind\Stream\{
     Watch,
     Watch\Select,
-    Exception\Exception as StreamException
 };
+use Innmind\Immutable\Maybe;
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -50,7 +49,7 @@ class UnixTest extends TestCase
         );
     }
 
-    public function testWrapStreamException()
+    public function testFailWhenCantOpenTheServer()
     {
         $receive = new Unix(
             $sockets = $this->createMock(Sockets::class),
@@ -63,39 +62,13 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->once())
             ->method('open')
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+            ->willReturn(Maybe::nothing());
 
-        try {
-            $receive(static function() {});
+        $this->expectException(RuntimeException::class);
 
-            $this->fail('it should throw');
-        } catch (RuntimeException $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
-    }
-
-    public function testWrapSocketException()
-    {
-        $receive = new Unix(
-            $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
-            $this->createMock(Clock::class),
-            $this->createMock(Signals::class),
-            Address::of('/tmp/foo.sock'),
-            new Timeout(1000),
-        );
-        $sockets
-            ->expects($this->once())
-            ->method('open')
-            ->will($this->throwException($expected = $this->createMock(SocketException::class)));
-
-        try {
-            $receive(static function() {});
-
-            $this->fail('it should throw');
-        } catch (RuntimeException $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
+        $receive(static function($_, $continuation) {
+            return $continuation;
+        });
     }
 
     public function testStopWhenNoActivityInGivenPeriod()

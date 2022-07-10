@@ -21,11 +21,6 @@ use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
     Server\Connection,
-    Exception\Exception as Socket,
-};
-use Innmind\Stream\{
-    Watch,
-    Exception\Exception as Stream,
 };
 use Innmind\TimeContinuum\{
     Clock,
@@ -72,8 +67,6 @@ final class Unix implements Server
             $this->loop($listen);
         } catch (Stop $e) {
             // stop receiving messages
-        } catch (Stream | Socket $e) {
-            throw new RuntimeException('', 0, $e);
         }
     }
 
