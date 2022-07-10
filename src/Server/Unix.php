@@ -7,7 +7,6 @@ use Innmind\IPC\{
     Server,
     Protocol,
     Client,
-    Exception\Stop,
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\{
@@ -92,10 +91,6 @@ final class Unix implements Server
                     static fn($iteration) => $iteration,
                     static fn() => null,
                 );
-            } catch (Stop) {
-                $this->unregisterSignals($shutdown);
-
-                return;
             } catch (\Throwable $e) {
                 $this->unregisterSignals($shutdown);
 

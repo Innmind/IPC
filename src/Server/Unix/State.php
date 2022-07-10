@@ -105,14 +105,14 @@ enum State
         };
     }
 
-    public function terminate(Connections $connections): Connections
+    /**
+     * @return Maybe<Connections>
+     */
+    public function terminate(Connections $connections): Maybe
     {
         return match ($this) {
-            self::awaitingConnection => $connections,
-            self::shuttingDown => $connections->terminate()->match(
-                static fn($connections) => $connections,
-                static fn() => throw new Stop,
-            ),
+            self::awaitingConnection => Maybe::just($connections),
+            self::shuttingDown => $connections->terminate(),
         };
     }
 }

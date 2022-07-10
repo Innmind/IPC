@@ -79,7 +79,7 @@ final class Iteration
         return $this
             ->state
             ->watch($this->connections)
-            ->map(fn($active) => $this->act($active, $listen));
+            ->flatMap(fn($active) => $this->act($active, $listen));
     }
 
     /**
@@ -96,8 +96,10 @@ final class Iteration
 
     /**
      * @param callable(Message, Continuation): Continuation $listen
+     *
+     * @return Maybe<self>
      */
-    private function act(Active $active, callable $listen): self
+    private function act(Active $active, callable $listen): Maybe
     {
         $connections = $this->state->acceptConnection(
             $active->server(),
@@ -111,14 +113,14 @@ final class Iteration
         try {
             $connections = $this->notify($active->clients(), $connections, $listen);
         } catch (Stop $e) {
-            return $this->shutdown($connections);
+            return Maybe::just($this->shutdown($connections));
         }
 
         return $this
             ->monitorTimeout($connections)
             ->map($this->monitorTermination(...))
             ->match(
-                fn($connections) => new self(
+                fn($connections) => $connections->map(fn($connections) => new self(
                     $this->protocol,
                     $this->clock,
                     $connections,
@@ -129,8 +131,8 @@ final class Iteration
                         false => $this->clock->now(),
                     },
                     $this->state,
-                ),
-                static fn($shuttingDown) => $shuttingDown,
+                )),
+                static fn($shuttingDown) => Maybe::just($shuttingDown),
             );
     }
 
@@ -200,7 +202,10 @@ final class Iteration
         };
     }
 
-    private function monitorTermination(Connections $connections): Connections
+    /**
+     * @return Maybe<Connections>
+     */
+    private function monitorTermination(Connections $connections): Maybe
     {
         return $this->state->terminate($connections);
     }
