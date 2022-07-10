@@ -196,9 +196,9 @@ final class Iteration
 
         $iterationDuration = $this->clock->now()->elapsedSince($this->lastActivity);
 
-        return match ($this->timeout->longerThan($iterationDuration)) {
-            true => Either::right($connections),
-            false => Either::left($this->shutdown($connections)),
+        return match ($iterationDuration->longerThan($this->timeout)) {
+            true => Either::left($this->shutdown($connections)),
+            false => Either::right($connections),
         };
     }
 
