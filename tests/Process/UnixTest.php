@@ -34,8 +34,7 @@ use Innmind\Stream\{
 };
 use Innmind\TimeContinuum\{
     Clock,
-    ElapsedPeriod,
-    Earth\ElapsedPeriod as Timeout
+    Earth\ElapsedPeriod as Timeout,
 };
 use Innmind\Immutable\{
     Str,

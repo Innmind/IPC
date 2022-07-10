@@ -17,7 +17,6 @@ use Innmind\TimeContinuum\{
 };
 use Innmind\Filesystem\{
     Adapter,
-    File,
     Name as FileName,
 };
 use Innmind\OperatingSystem\{

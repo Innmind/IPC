@@ -6,7 +6,6 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
-    Client,
     Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\{
@@ -14,20 +13,10 @@ use Innmind\OperatingSystem\{
     CurrentProcess\Signals,
 };
 use Innmind\Signals\Signal;
-use Innmind\Socket\{
-    Address\Unix as Address,
-    Server as ServerSocket,
-    Server\Connection,
-};
+use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
-    PointInTime,
-};
-use Innmind\Immutable\{
-    Map,
-    Set,
-    Maybe,
 };
 
 final class Unix implements Server

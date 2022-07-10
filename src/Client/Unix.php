@@ -7,13 +7,9 @@ use Innmind\IPC\{
     Client,
     Protocol,
     Message,
-    Message\ConnectionClose,
 };
 use Innmind\Socket\Server\Connection;
-use Innmind\Immutable\{
-    Maybe,
-    SideEffect,
-};
+use Innmind\Immutable\Maybe;
 
 final class Unix implements Client
 {

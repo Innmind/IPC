@@ -8,7 +8,6 @@ use Innmind\IPC\{
     Client,
     Protocol,
     Message,
-    Message\ConnectionClose,
 };
 use Innmind\Socket\Server\Connection;
 use Innmind\Stream\{

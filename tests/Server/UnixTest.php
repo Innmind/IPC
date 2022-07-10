@@ -25,10 +25,7 @@ use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
 };
-use Innmind\Stream\{
-    Watch,
-    Watch\Select,
-};
+use Innmind\Stream\Watch;
 use Innmind\Immutable\Maybe;
 use PHPUnit\Framework\TestCase;
 

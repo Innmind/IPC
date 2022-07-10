@@ -11,12 +11,7 @@ use Innmind\Socket\{
     Server,
     Server\Connection,
 };
-use Innmind\Stream\{
-    Selectable,
-    Readable,
-    Watch,
-    Watch\Ready,
-};
+use Innmind\Stream\Watch;
 use Innmind\Immutable\{
     Map,
     Maybe,

@@ -9,7 +9,6 @@ use Innmind\IPC\{
     Server\ClientLifecycle,
     Client,
     Protocol,
-    Exception\RuntimeException,
 };
 use Innmind\TimeContinuum\{
     Clock,
