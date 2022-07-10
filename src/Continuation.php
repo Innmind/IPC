@@ -25,6 +25,9 @@ final class Continuation
         $this->stop = $stop;
     }
 
+    /**
+     * @internal
+     */
     public static function start(Client $client): self
     {
         return new self($client);
