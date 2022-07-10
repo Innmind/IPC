@@ -7,8 +7,6 @@ use Innmind\IPC\{
     Server,
     Protocol,
     Client,
-    Message,
-    Continuation,
     Exception\Stop,
     Exception\RuntimeException,
 };
@@ -63,18 +61,6 @@ final class Unix implements Server
 
     public function __invoke(callable $listen): void
     {
-        try {
-            $this->loop($listen);
-        } catch (Stop $e) {
-            // stop receiving messages
-        }
-    }
-
-    /**
-     * @param callable(Message, Continuation): Continuation $listen
-     */
-    private function loop(callable $listen): void
-    {
         $server = $this->sockets->open($this->address)->match(
             static fn($server) => $server,
             static fn() => throw new RuntimeException,
@@ -106,6 +92,10 @@ final class Unix implements Server
                     static fn($iteration) => $iteration,
                     static fn() => null,
                 );
+            } catch (Stop) {
+                $this->unregisterSignals($shutdown);
+
+                return;
             } catch (\Throwable $e) {
                 $this->unregisterSignals($shutdown);
 
