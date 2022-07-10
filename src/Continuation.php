@@ -66,8 +66,8 @@ final class Continuation
      *
      * @param callable(Client, Message): A $onResponse
      * @param callable(Client): B $onClose
-     * @param callable(Client): C $onContinue
-     * @param callable(Client): D $onStop
+     * @param callable(Client): C $onStop
+     * @param callable(Client): D $onContinue
      *
      * @return A|B|C|D
      */
