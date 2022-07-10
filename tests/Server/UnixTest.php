@@ -7,7 +7,6 @@ use Innmind\IPC\{
     Server\Unix,
     Server,
     Protocol,
-    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\{
     Factory,
@@ -61,11 +60,14 @@ class UnixTest extends TestCase
             ->method('open')
             ->willReturn(Maybe::nothing());
 
-        $this->expectException(RuntimeException::class);
-
-        $receive(static function($_, $continuation) {
+        $e = $receive(static function($_, $continuation) {
             return $continuation;
-        });
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        );
+
+        $this->assertInstanceOf(Server\UnableToStart::class, $e);
     }
 
     public function testStopWhenNoActivityInGivenPeriod()
@@ -85,7 +87,10 @@ class UnixTest extends TestCase
 
         $this->assertNull($listen(static function($_, $continuation) {
             return $continuation;
-        }));
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testInstallSignalsHandlerOnlyWhenStartingTheServer()
@@ -183,7 +188,10 @@ class UnixTest extends TestCase
 
         $this->assertNull($listen(static function($_, $continuation) {
             return $continuation->stop();
-        }));
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testClientClose()
@@ -209,7 +217,10 @@ class UnixTest extends TestCase
 
         $this->assertNull($listen(static function($message, $continuation) {
             return $continuation->close();
-        }));
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testBidirectionalHeartbeat()
@@ -235,7 +246,10 @@ class UnixTest extends TestCase
 
         $this->assertNull($listen(static function($_, $continuation) {
             return $continuation;
-        }));
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
         // only test coverage can show that heartbeat messages are sent
     }
 
@@ -292,7 +306,10 @@ class UnixTest extends TestCase
 
         $this->assertNull($listen(static function($_, $continuation) {
             return $continuation;
-        }));
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
         $client->wait();
         $this->assertSame('', $client->output()->toString());
     }

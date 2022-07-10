@@ -6,7 +6,6 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
-    Exception\RuntimeException,
 };
 use Innmind\OperatingSystem\{
     Sockets,
@@ -18,6 +17,7 @@ use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
 };
+use Innmind\Immutable\Either;
 
 final class Unix implements Server
 {
@@ -47,23 +47,31 @@ final class Unix implements Server
         $this->timeout = $timeout;
     }
 
-    public function __invoke(callable $listen): void
+    public function __invoke(callable $listen): Either
     {
-        $server = $this->sockets->open($this->address)->match(
-            static fn($server) => $server,
-            static fn() => throw new RuntimeException,
-        );
-        $connections = Connections::start(
-            $this->sockets->watch($this->heartbeat),
-            $server,
-        );
-        $iteration = Unix\Iteration::first(
-            $this->protocol,
-            $this->clock,
-            $connections,
-            $this->heartbeat,
-            $this->timeout,
-        );
+        $iteration = $this
+            ->sockets
+            ->open($this->address)
+            ->map(fn($server) => Connections::start(
+                $this->sockets->watch($this->heartbeat),
+                $server,
+            ))
+            ->map(fn($connections) => Unix\Iteration::first(
+                $this->protocol,
+                $this->clock,
+                $connections,
+                $this->heartbeat,
+                $this->timeout,
+            ))
+            ->match(
+                static fn($iteration) => $iteration,
+                static fn() => null,
+            );
+
+        if (\is_null($iteration)) {
+            return Either::left(new UnableToStart);
+        }
+
         $shutdown = static function() use (&$iteration): void {
             /** @var Unix\Iteration $iteration */
             $iteration->startShutdown();
@@ -88,6 +96,8 @@ final class Unix implements Server
         } while (!\is_null($iteration));
 
         $this->unregisterSignals($shutdown);
+
+        return Either::right(null);
     }
 
     /**
