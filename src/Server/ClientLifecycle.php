@@ -66,7 +66,7 @@ final class ClientLifecycle
     /**
      * @template C
      *
-     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $notify
      * @param C $carry
      *
      * @return Either<C, Either<array{self, C}, array{self, C}>> Left side of Either means the notify asked the server to stop

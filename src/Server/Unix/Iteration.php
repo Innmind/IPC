@@ -86,7 +86,7 @@ final class Iteration
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      *
      * @return Either<C, self>
      */
@@ -112,7 +112,7 @@ final class Iteration
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      *
      * @return Either<C, self>
      */
@@ -170,7 +170,7 @@ final class Iteration
 
     /**
      * @param Set<Connection> $active
-     * @param callable(Message, Continuation): Continuation $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      *
      * @return Either<array{Connections, C}, array{Connections, C}> Left side means the connections must be shutdown
      */

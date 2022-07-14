@@ -149,7 +149,7 @@ class UnixTest extends TestCase
 
         try {
             $server(null, static function($_, $continuation) {
-                return $continuation->stop();
+                return $continuation->stop(null);
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -158,7 +158,7 @@ class UnixTest extends TestCase
         try {
             // check signals are not registered twice
             $server(null, static function($_, $continuation) {
-                return $continuation->stop();
+                return $continuation->stop(null);
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -187,7 +187,7 @@ class UnixTest extends TestCase
         );
 
         $this->assertNull($listen(null, static function($_, $continuation) {
-            return $continuation->stop();
+            return $continuation->stop(null);
         })->match(
             static fn() => null,
             static fn($e) => $e,
@@ -216,7 +216,7 @@ class UnixTest extends TestCase
         );
 
         $this->assertNull($listen(null, static function($message, $continuation) {
-            return $continuation->close();
+            return $continuation->close(null);
         })->match(
             static fn() => null,
             static fn($e) => $e,
@@ -312,5 +312,40 @@ class UnixTest extends TestCase
         ));
         $client->wait();
         $this->assertSame('', $client->output()->toString());
+    }
+
+    public function testCarriedValueIsReturnedWhenStopped()
+    {
+        $os = Factory::build();
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client-multi-message.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+        );
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            $os->process()->signals(),
+            Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
+            new Timeout(100),
+            new Timeout(3000),
+        );
+
+        $carry = $listen(0, static function($_, $continuation, $carry) {
+            if ($carry === 2) {
+                return $continuation->stop($carry + 1);
+            }
+
+            return $continuation->continue($carry + 1);
+        })->match(
+            static fn($carry) => $carry,
+            static fn() => null,
+        );
+
+        $this->assertSame(3, $carry);
     }
 }

@@ -11,7 +11,7 @@ interface Server
      * @template C
      *
      * @param C $carry
-     * @param callable(Message, Continuation<C>): Continuation<C> $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      *
      * @return Either<Server\UnableToStart, C>
      */

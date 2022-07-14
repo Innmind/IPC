@@ -28,7 +28,7 @@ enum State
     /**
      * @template C
      *
-     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $notify
      * @param C $carry
      *
      * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>> Inner left side of Either means stop the server
@@ -68,7 +68,7 @@ enum State
     /**
      * @template C
      *
-     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $notify
      * @param C $carry
      *
      * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>>
@@ -110,6 +110,7 @@ enum State
             ->map(static fn($client) => $notify(
                 $message,
                 Continuation::start($client, $carry),
+                $carry,
             ))
             ->flatMap($this->determineNextState(...));
     }

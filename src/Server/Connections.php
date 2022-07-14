@@ -103,7 +103,7 @@ final class Connections
     /**
      * @template C
      *
-     * @param callable(Message, Continuation<C>): Continuation<C> $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      * @param C $carry
      *
      * @return Either<array{self, C}, array{self, C}> Left side means the connections must be shutdown

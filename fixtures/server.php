@@ -12,10 +12,10 @@ require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = IPC::build($os);
-$ipc->listen(new Name('server'))(null, static function($message, $continuation) {
+$ipc->listen(new Name('server'))(null, static function($message, $continuation, $carry) {
     if ($message->content()->equals(Str::of('stop'))) {
-        return $continuation->stop();
+        return $continuation->stop($carry);
     }
 
-    return $continuation->respond($message);
+    return $continuation->respond($carry, $message);
 });

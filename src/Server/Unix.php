@@ -53,7 +53,7 @@ final class Unix implements Server
      * @template C
      *
      * @param C $carry
-     * @param callable(Message, Continuation): Continuation $listen
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
      *
      * @return Either<UnableToStart, C>
      */

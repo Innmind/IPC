@@ -47,41 +47,49 @@ final class Continuation
     }
 
     /**
-     * @return T
+     * @param T $carry
+     *
+     * @return self<T>
      */
-    public function carried(): mixed
+    public function continue(mixed $carry): self
     {
-        return $this->carry;
+        return new self($this->client, $carry);
     }
 
     /**
      * This will send the given message to the client
      *
+     * @param T $carry
+     *
      * @return self<T>
      */
-    public function respond(Message $message): self
+    public function respond(mixed $carry, Message $message): self
     {
-        return new self($this->client, $this->carry, response: $message);
+        return new self($this->client, $carry, response: $message);
     }
 
     /**
      * The client will be closed and then garbage collected
      *
+     * @param T $carry
+     *
      * @return self<T>
      */
-    public function close(): self
+    public function close(mixed $carry): self
     {
-        return new self($this->client, $this->carry, closed: true);
+        return new self($this->client, $carry, closed: true);
     }
 
     /**
      * The server will be gracefully shutdown
      *
+     * @param T $carry
+     *
      * @return self<T>
      */
-    public function stop(): self
+    public function stop(mixed $carry): self
     {
-        return new self($this->client, $this->carry, stop: true);
+        return new self($this->client, $carry, stop: true);
     }
 
     /**
