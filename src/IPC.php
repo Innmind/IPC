@@ -4,7 +4,10 @@ declare(strict_types = 1);
 namespace Innmind\IPC;
 
 use Innmind\TimeContinuum\ElapsedPeriod;
-use Innmind\Immutable\Set;
+use Innmind\Immutable\{
+    Set,
+    Maybe,
+};
 
 interface IPC
 {
@@ -14,10 +17,14 @@ interface IPC
     public function processes(): Set;
 
     /**
-     * @throws Exception\FailedToConnect
+     * @return Maybe<Process>
      */
-    public function get(Process\Name $name): Process;
+    public function get(Process\Name $name): Maybe;
     public function exist(Process\Name $name): bool;
-    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): void;
+
+    /**
+     * @return Maybe<Process>
+     */
+    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe;
     public function listen(Process\Name $self, ElapsedPeriod $timeout = null): Server;
 }

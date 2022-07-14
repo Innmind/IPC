@@ -17,7 +17,6 @@ use Innmind\TimeContinuum\{
 };
 use Innmind\Filesystem\{
     Adapter,
-    File,
     Name as FileName,
 };
 use Innmind\OperatingSystem\{
@@ -26,7 +25,10 @@ use Innmind\OperatingSystem\{
 };
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\Url\Path;
-use Innmind\Immutable\Set;
+use Innmind\Immutable\{
+    Set,
+    Maybe,
+};
 
 final class Unix implements IPC
 {
@@ -45,7 +47,7 @@ final class Unix implements IPC
         CurrentProcess $process,
         Protocol $protocol,
         Path $path,
-        ElapsedPeriod $heartbeat
+        ElapsedPeriod $heartbeat,
     ) {
         if (!$path->directory()) {
             throw new LogicException("Path must be a directory, got '{$path->toString()}'");
@@ -62,22 +64,25 @@ final class Unix implements IPC
 
     public function processes(): Set
     {
+        /** @var Set<Process\Name> */
         return $this
             ->filesystem
             ->all()
-            ->mapTo(
-                Process\Name::class,
-                static fn(File $file): Process\Name => new Process\Name($file->name()->toString()),
-            );
+            ->map(static fn($file) => Process\Name::maybe($file->name()->toString())->match(
+                static fn($name) => $name,
+                static fn() => null,
+            ))
+            ->filter(static fn($name) => $name instanceof Process\Name);
     }
 
-    public function get(Process\Name $name): Process
+    public function get(Process\Name $name): Maybe
     {
         if (!$this->exist($name)) {
-            throw new LogicException($name->toString());
+            /** @var Maybe<Process> */
+            return Maybe::nothing();
         }
 
-        return new Process\Unix(
+        return Process\Unix::of(
             $this->sockets,
             $this->protocol,
             $this->clock,
@@ -92,24 +97,23 @@ final class Unix implements IPC
         return $this->filesystem->contains(new FileName("{$name->toString()}.sock"));
     }
 
-    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): void
+    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe
     {
         $start = $this->clock->now();
 
-        do {
-            if ($this->exist($name)) {
-                return;
-            }
-
+        while (!$this->exist($name)) {
             if (
                 $timeout instanceof ElapsedPeriod &&
                 $this->clock->now()->elapsedSince($start)->longerThan($timeout)
             ) {
-                return;
+                /** @var Maybe<Process> */
+                return Maybe::nothing();
             }
 
             $this->process->halt(new Millisecond($this->heartbeat->milliseconds()));
-        } while (true);
+        }
+
+        return $this->get($name);
     }
 
     public function listen(Process\Name $self, ElapsedPeriod $timeout = null): Server

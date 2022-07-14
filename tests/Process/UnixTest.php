@@ -14,12 +14,7 @@ use Innmind\IPC\{
     Message\ConnectionClose,
     Message\ConnectionCloseOk,
     Message\Heartbeat,
-    Exception\FailedToConnect,
-    Exception\ConnectionClosed,
-    Exception\InvalidConnectionClose,
-    Exception\RuntimeException,
-    Exception\Timedout,
-    Exception\MessageNotSent,
+    Message\MessageReceived,
 };
 use Innmind\OperatingSystem\{
     Factory,
@@ -32,18 +27,22 @@ use Innmind\Server\Control\Server\{
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
-    Exception\Exception as SocketException,
 };
 use Innmind\Stream\{
     Watch\Select,
-    Exception\Exception as StreamException,
+    FailedToWriteToStream,
 };
 use Innmind\TimeContinuum\{
     Clock,
-    ElapsedPeriod,
-    Earth\ElapsedPeriod as Timeout
+    Earth\ElapsedPeriod as Timeout,
 };
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Maybe,
+    Either,
+    SideEffect,
+    Sequence,
+};
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -58,12 +57,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -73,7 +72,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -81,22 +80,26 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         $this->assertInstanceOf(Process::class, $process);
         $this->assertSame($name, $process->name());
     }
 
-    public function testThrowWhenFailedConnectionStart()
+    public function testReturnNothingWhenFailedConnectionStart()
     {
         $timeout = new Timeout(1000);
         $sockets = $this->createMock(Sockets::class);
@@ -106,12 +109,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -121,22 +124,25 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn($this->createMock(Message::class));
+            ->willReturn(Maybe::just($this->createMock(Message::class)));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $this->expectException(FailedToConnect::class);
-        $this->expectExceptionMessage('foo');
-
-        new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            new Name('foo'),
+            Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
+
+        $this->assertNull($process);
     }
 
     public function testSend()
@@ -151,12 +157,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -166,7 +172,10 @@ class UnixTest extends TestCase
             ->expects($this->atLeast(1))
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->will($this->onConsecutiveCalls(
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new MessageReceived),
+            ));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
@@ -180,21 +189,28 @@ class UnixTest extends TestCase
             ->withConsecutive(
                 [Str::of('start-ok')],
                 [Str::of('message-to-send')],
-            );
+            )
+            ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->assertNull($process->send($message));
+        $this->assertSame($process, $process->send(Sequence::of($message))->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 
-    public function testWrapStreamExceptionWhenErrorAtSent()
+    public function testReturnNothingWhenErrorAtSent()
     {
         $message = $this->createMock(Message::class);
 
@@ -206,12 +222,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -221,88 +237,45 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->exactly(2))
             ->method('encode')
             ->withConsecutive([new ConnectionStartOk], [$message])
             ->will($this->onConsecutiveCalls(
                 Str::of('start-ok'),
-                $this->throwException($this->createMock(StreamException::class)),
+                Str::of('message content'),
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
-
-        $process = new Unix(
-            $sockets,
-            $protocol,
-            $this->createMock(Clock::class),
-            $address,
-            $name = new Name('foo'),
-            $timeout,
-        );
-
-        $this->expectException(RuntimeException::class);
-
-        $process->send($message);
-    }
-
-    public function testWrapSocketExceptionWhenErrorAtSent()
-    {
-        $message = $this->createMock(Message::class);
-
-        $timeout = new Timeout(1000);
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($timeout)
-            ->willReturn(new Select($timeout));
-        $resource = \tmpfile();
-        $socket
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource);
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionStart);
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [$message])
+            ->withConsecutive(
+                [Str::of('start-ok')],
+                [Str::of('message content')],
+            )
             ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                $this->throwException($this->createMock(SocketException::class)),
+                Either::right($socket),
+                Either::left(new FailedToWriteToStream),
             ));
-        $socket
-            ->method('write')
-            ->with(Str::of('start-ok'));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->expectException(RuntimeException::class);
-
-        $process->send($message);
+        $this->assertNull($process->send(Sequence::of($message))->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 
-    public function testDoNothingWhenTryingToSendOnClosedSocket()
+    public function testReturnNothingWhenTryingToSendOnClosedSocket()
     {
         $timeout = new Timeout(1000);
         $sockets = $this->createMock(Sockets::class);
@@ -312,12 +285,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -327,7 +300,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -336,26 +309,33 @@ class UnixTest extends TestCase
         $socket
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
         $socket
             ->expects($this->exactly(3))
             ->method('closed')
             ->will($this->onConsecutiveCalls(
                 false,
                 false,
-                true
+                true,
             ));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->assertNull($process->send($this->createMock(Message::class)));
+        $this->assertNull($process->send(Sequence::of($this->createMock(Message::class)))->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 
     public function testThrowWhenWaitingOnClosedSocket()
@@ -368,12 +348,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -383,7 +363,7 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('decode')
             ->with($socket)
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -391,31 +371,36 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
         $socket
             ->method('closed')
             ->will($this->onConsecutiveCalls(
                 false,
                 false,
-                true
+                true,
             ));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        try {
-            $process->wait();
-
-            $this->fail('it should throw');
-        } catch (ConnectionClosed $e) {
-            $this->assertTrue($process->closed());
-        }
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
+        $this->assertTrue($process->closed());
     }
 
     public function testWait()
@@ -428,12 +413,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -449,23 +434,30 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $message = $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just($message = $this->createMock(Message::class)),
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->assertSame($message, $process->wait());
+        $this->assertSame($message, $process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testDiscardHeartbeatWhenWaiting()
@@ -478,12 +470,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -499,24 +491,31 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new Heartbeat,
-                $message = $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new Heartbeat),
+                Maybe::just($message = $this->createMock(Message::class)),
             ));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->assertSame($message, $process->wait());
+        $this->assertSame($message, $process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testConfirmCloseWhenWaiting()
@@ -529,12 +528,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -545,8 +544,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new ConnectionClose,
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new ConnectionClose),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -564,27 +563,32 @@ class UnixTest extends TestCase
             ->withConsecutive(
                 [Str::of('start-ok')],
                 [Str::of('close-ok')],
-            );
+            )
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        try {
-            $process->wait();
-
-            $this->fail('it should throw');
-        } catch (ConnectionClosed $e) {
-            $this->assertTrue($process->closed());
-        }
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
+        $this->assertTrue($process->closed());
     }
 
-    public function testWrapStreamExceptionWhenErrorAtWait()
+    public function testReturnNothingWhenNoMessageDecoded()
     {
         $timeout = new Timeout(1000);
         $sockets = $this->createMock(Sockets::class);
@@ -594,12 +598,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -610,8 +614,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->throwException($this->createMock(StreamException::class)),
+                Maybe::just(new ConnectionStart),
+                Maybe::nothing(),
             ));
         $protocol
             ->expects($this->once())
@@ -620,72 +624,25 @@ class UnixTest extends TestCase
             ->willReturn(Str::of('start-ok'));
         $socket
             ->method('write')
-            ->with(Str::of('start-ok'));
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->expectException(RuntimeException::class);
-
-        $process->wait();
-    }
-
-    public function testWrapSocketExceptionWhenErrorAtWait()
-    {
-        $timeout = new Timeout(1000);
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($timeout)
-            ->willReturn(new Select($timeout));
-        $resource = \tmpfile();
-        $socket
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource);
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('decode')
-            ->with($socket)
-            ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->throwException($this->createMock(SocketException::class))
-            ));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionStartOk)
-            ->willReturn(Str::of('start-ok'));
-        $socket
-            ->method('write')
-            ->with(Str::of('start-ok'));
-
-        $process = new Unix(
-            $sockets,
-            $protocol,
-            $this->createMock(Clock::class),
-            $address,
-            $name = new Name('foo'),
-            $timeout,
-        );
-
-        $this->expectException(RuntimeException::class);
-
-        $process->wait();
+        $this->assertNull($process->wait()->match(
+            static fn($message) => $message,
+            static fn() => null,
+        ));
     }
 
     public function testClose()
@@ -698,12 +655,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -714,8 +671,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                new ConnectionCloseOk,
+                Maybe::just(new ConnectionStart),
+                Maybe::just(new ConnectionCloseOk),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -727,18 +684,28 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->assertNull($process->close());
+        $this->assertInstanceOf(SideEffect::class, $process->close()->match(
+            static fn($sideEffect) => $sideEffect,
+            static fn() => null,
+        ));
         $this->assertTrue($process->closed());
     }
 
@@ -752,12 +719,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($timeout)
-            ->willReturn(new Select($timeout));
+            ->willReturn(Select::timeoutAfter($timeout));
         $resource = \tmpfile();
         $socket
             ->expects($this->any())
@@ -768,8 +735,8 @@ class UnixTest extends TestCase
             ->method('decode')
             ->with($socket)
             ->will($this->onConsecutiveCalls(
-                new ConnectionStart,
-                $this->createMock(Message::class),
+                Maybe::just(new ConnectionStart),
+                Maybe::just($this->createMock(Message::class)),
             ));
         $protocol
             ->expects($this->exactly(2))
@@ -781,24 +748,29 @@ class UnixTest extends TestCase
             ));
         $socket
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')]);
+            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
+            ->willReturn(Either::right($socket));
+        $socket
+            ->method('close')
+            ->willReturn(Either::right(new SideEffect));
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        try {
-            $process->close();
-
-            $this->fail('it should throw');
-        } catch (InvalidConnectionClose $e) {
-            $this->assertTrue($process->closed());
-        }
+        $this->assertNull($process->close()->match(
+            static fn($sideEffect) => $sideEffect,
+            static fn() => null,
+        ));
+        $this->assertTrue($process->closed());
     }
 
     public function testStopWaitingAfterTimeout()
@@ -809,140 +781,62 @@ class UnixTest extends TestCase
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/eternal-server.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         \sleep(1);
 
-        $process = new Unix(
+        $process = Unix::of(
             $os->sockets(),
             new Protocol\Binary,
             $os->clock(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
-            $name = new Name('server'),
-            new Timeout(1000)
+            $name = Name::of('server'),
+            new Timeout(1000),
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
         try {
-            $process->wait(new Timeout(100));
-
-            $this->fail('it should throw');
-        } catch (Timedout $e) {
-            $processes->kill($server->pid(), Signal::terminate());
-            $this->assertTrue(true);
-        }
-    }
-
-    public function testThrowWhenStreamErrorWhenConnecting()
-    {
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
-
-        try {
-            new Unix(
-                $sockets,
-                $protocol,
-                $this->createMock(Clock::class),
-                $address,
-                new Name('foo'),
-                new Timeout(1000)
-            );
-
-            $this->fail('it should throw');
-        } catch (FailedToConnect $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
-    }
-
-    public function testThrowWhenSocketErrorWhenConnecting()
-    {
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
-
-        try {
-            new Unix(
-                $sockets,
-                $protocol,
-                $this->createMock(Clock::class),
-                $address,
-                new Name('foo'),
-                new Timeout(1000)
-            );
-
-            $this->fail('it should throw');
-        } catch (FailedToConnect $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
-    }
-
-    public function testThrowWhenFailedToSendMessage()
-    {
-        $message = $this->createMock(Message::class);
-
-        $timeout = new Timeout(1000);
-        $sockets = $this->createMock(Sockets::class);
-        $protocol = $this->createMock(Protocol::class);
-        $address = Address::of('/tmp/foo');
-        $sockets
-            ->expects($this->once())
-            ->method('connectTo')
-            ->with($address)
-            ->willReturn($socket = $this->createMock(Client::class));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($timeout)
-            ->willReturn(new Select($timeout));
-        $resource = \tmpfile();
-        $socket
-            ->expects($this->any())
-            ->method('resource')
-            ->willReturn($resource);
-        $protocol
-            ->expects($this->once())
-            ->method('decode')
-            ->with($socket)
-            ->willReturn(new ConnectionStart);
-        $protocol
-            ->expects($this->exactly(2))
-            ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [$message])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('message-to-send'),
+            $this->assertNull($process->wait(new Timeout(100))->match(
+                static fn($message) => $message,
+                static fn() => null,
             ));
-        $socket
-            ->method('write')
-            ->with($this->callback(static function($message): bool {
-                if ($message->toString() === 'message-to-send') {
-                    throw new RuntimeException;
-                }
+        } finally {
+            $processes->kill(
+                $server->pid()->match(
+                    static fn($pid) => $pid,
+                    static fn() => null,
+                ),
+                Signal::terminate,
+            );
+        }
+    }
 
-                return true;
-            }));
+    public function testReturnNothingWhenSocketErrorWhenConnecting()
+    {
+        $sockets = $this->createMock(Sockets::class);
+        $protocol = $this->createMock(Protocol::class);
+        $address = Address::of('/tmp/foo');
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->with($address)
+            ->willReturn(Maybe::nothing());
 
-        $process = new Unix(
+        $process = Unix::of(
             $sockets,
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
-            $timeout,
+            Name::of('foo'),
+            new Timeout(1000),
+        )->match(
+            static fn($process) => $process,
+            static fn() => null,
         );
 
-        $this->expectException(MessageNotSent::class);
-
-        $process->send($message);
+        $this->assertNull($process);
     }
 }

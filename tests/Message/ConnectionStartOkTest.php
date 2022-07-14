@@ -28,7 +28,7 @@ class ConnectionStartOkTest extends TestCase
         $message = new ConnectionStartOk;
         $same = new Generic(
             MediaType::of('text/plain'),
-            Str::of('innmind/ipc:connection.start-ok')
+            Str::of('innmind/ipc:connection.start-ok'),
         );
         $different = new Message\Generic(
             MediaType::of('text/plain'),

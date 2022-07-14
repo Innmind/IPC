@@ -7,8 +7,6 @@ use Innmind\IPC\{
     Server\Unix,
     Server,
     Protocol,
-    Exception\RuntimeException,
-    Exception\Stop,
 };
 use Innmind\OperatingSystem\{
     Factory,
@@ -21,18 +19,13 @@ use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
     Earth\ElapsedPeriod as Timeout,
-    PointInTime,
 };
 use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
-    Exception\Exception as SocketException,
 };
-use Innmind\Stream\{
-    Watch,
-    Watch\Select,
-    Exception\Exception as StreamException
-};
+use Innmind\Stream\Watch;
+use Innmind\Immutable\Maybe;
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -47,12 +40,12 @@ class UnixTest extends TestCase
                 $this->createMock(Clock::class),
                 $this->createMock(Signals::class),
                 Address::of('/tmp/foo.sock'),
-                new Timeout(1000)
-            )
+                new Timeout(1000),
+            ),
         );
     }
 
-    public function testWrapStreamException()
+    public function testFailWhenCantOpenTheServer()
     {
         $receive = new Unix(
             $sockets = $this->createMock(Sockets::class),
@@ -60,96 +53,44 @@ class UnixTest extends TestCase
             $this->createMock(Clock::class),
             $this->createMock(Signals::class),
             Address::of('/tmp/foo.sock'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $sockets
             ->expects($this->once())
             ->method('open')
-            ->will($this->throwException($expected = $this->createMock(StreamException::class)));
+            ->willReturn(Maybe::nothing());
 
-        try {
-            $receive(static function() {});
-
-            $this->fail('it should throw');
-        } catch (RuntimeException $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
-    }
-
-    public function testWrapSocketException()
-    {
-        $receive = new Unix(
-            $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
-            $this->createMock(Clock::class),
-            $this->createMock(Signals::class),
-            Address::of('/tmp/foo.sock'),
-            new Timeout(1000)
+        $e = $receive(null, static function($_, $continuation) {
+            return $continuation;
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
         );
-        $sockets
-            ->expects($this->once())
-            ->method('open')
-            ->will($this->throwException($expected = $this->createMock(SocketException::class)));
 
-        try {
-            $receive(static function() {});
-
-            $this->fail('it should throw');
-        } catch (RuntimeException $e) {
-            $this->assertSame($expected, $e->getPrevious());
-        }
+        $this->assertInstanceOf(Server\UnableToStart::class, $e);
     }
 
     public function testStopWhenNoActivityInGivenPeriod()
     {
-        $receive = new Unix(
-            $sockets = $this->createMock(Sockets::class),
-            $this->createMock(Protocol::class),
-            $clock = $this->createMock(Clock::class),
-            $this->createMock(Signals::class),
-            $address = Address::of('/tmp/foo.sock'),
-            $heartbeat = new Timeout(10),
-            $timeout = $this->createMock(ElapsedPeriod::class)
-        );
-        $sockets
-            ->expects($this->once())
-            ->method('open')
-            ->willReturn(ServerSocket\Unix::recoverable($address));
-        $sockets
-            ->expects($this->once())
-            ->method('watch')
-            ->with($heartbeat)
-            ->willReturn(new Select($heartbeat));
-        $clock
-            ->expects($this->exactly(3))
-            ->method('now')
-            ->will($this->onConsecutiveCalls(
-                $start = $this->createMock(PointInTime::class),
-                $firstIteration = $this->createMock(PointInTime::class),
-                $secondIteration = $this->createMock(PointInTime::class),
-            ));
-        $firstIteration
-            ->expects($this->once())
-            ->method('elapsedSince')
-            ->with($start)
-            ->willReturn($duration = $this->createMock(ElapsedPeriod::class));
-        $duration
-            ->expects($this->once())
-            ->method('longerThan')
-            ->with($timeout)
-            ->willReturn(false);
-        $secondIteration
-            ->expects($this->once())
-            ->method('elapsedSince')
-            ->with($start)
-            ->willReturn($duration = $this->createMock(ElapsedPeriod::class));
-        $duration
-            ->expects($this->once())
-            ->method('longerThan')
-            ->with($timeout)
-            ->willReturn(true);
+        $os = Factory::build();
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
 
-        $this->assertNull($receive(static function() {}));
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            $os->process()->signals(),
+            Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
+            new Timeout(100),
+            new Timeout(1000),
+        );
+
+        $this->assertNull($listen(null, static function($_, $continuation) {
+            return $continuation;
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testInstallSignalsHandlerOnlyWhenStartingTheServer()
@@ -163,7 +104,7 @@ class UnixTest extends TestCase
             $signals,
             $address = Address::of('/tmp/foo.sock'),
             $heartbeat = new Timeout(10),
-            $this->createMock(ElapsedPeriod::class)
+            $this->createMock(ElapsedPeriod::class),
         );
         $sockets
             ->expects($this->any())
@@ -189,20 +130,26 @@ class UnixTest extends TestCase
             return true;
         });
         $signals
-            ->expects($this->exactly(6))
+            ->expects($this->exactly(12))
             ->method('listen')
             ->withConsecutive(
-                [Signal::hangup(), $callback],
-                [Signal::interrupt(), $callback],
-                [Signal::abort(), $callback],
-                [Signal::terminate(), $callback],
-                [Signal::terminalStop(), $callback],
-                [Signal::alarm(), $callback],
+                [Signal::hangup, $callback],
+                [Signal::interrupt, $callback],
+                [Signal::abort, $callback],
+                [Signal::terminate, $callback],
+                [Signal::terminalStop, $callback],
+                [Signal::alarm, $callback],
+                [Signal::hangup, $callback],
+                [Signal::interrupt, $callback],
+                [Signal::abort, $callback],
+                [Signal::terminate, $callback],
+                [Signal::terminalStop, $callback],
+                [Signal::alarm, $callback],
             );
 
         try {
-            $server(static function() {
-                throw new Stop;
+            $server(null, static function($_, $continuation) {
+                return $continuation->stop(null);
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -210,8 +157,8 @@ class UnixTest extends TestCase
 
         try {
             // check signals are not registered twice
-            $server(static function() {
-                throw new Stop;
+            $server(null, static function($_, $continuation) {
+                return $continuation->stop(null);
             });
         } catch (\Exception $e) {
             $this->assertSame($expected, $e);
@@ -226,6 +173,7 @@ class UnixTest extends TestCase
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -235,12 +183,15 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(10000)
+            new Timeout(10000),
         );
 
-        $this->assertNull($listen(static function() {
-            throw new Stop;
-        }));
+        $this->assertNull($listen(null, static function($_, $continuation) {
+            return $continuation->stop(null);
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testClientClose()
@@ -251,6 +202,7 @@ class UnixTest extends TestCase
         $client = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -260,12 +212,15 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($message, $client) {
-            $client->close();
-        }));
+        $this->assertNull($listen(null, static function($message, $continuation) {
+            return $continuation->close(null);
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
     }
 
     public function testBidirectionalHeartbeat()
@@ -276,6 +231,7 @@ class UnixTest extends TestCase
         $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -285,11 +241,15 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function() {
-        }));
+        $this->assertNull($listen(null, static function($_, $continuation) {
+            return $continuation;
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
         // only test coverage can show that heartbeat messages are sent
     }
 
@@ -301,6 +261,7 @@ class UnixTest extends TestCase
         $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -310,12 +271,12 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
         $this->expectException(\Exception::class);
 
-        $listen(static function() {
+        $listen(null, static function() {
             throw new \Exception;
         });
         // only test coverage can show that show that connections are closed on
@@ -330,6 +291,7 @@ class UnixTest extends TestCase
         $client = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/self-closing-client.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
         );
 
         $listen = new Unix(
@@ -339,12 +301,51 @@ class UnixTest extends TestCase
             $os->process()->signals(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
             new Timeout(100),
-            new Timeout(3000)
+            new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function() {
-        }));
+        $this->assertNull($listen(null, static function($_, $continuation) {
+            return $continuation;
+        })->match(
+            static fn() => null,
+            static fn($e) => $e,
+        ));
         $client->wait();
         $this->assertSame('', $client->output()->toString());
+    }
+
+    public function testCarriedValueIsReturnedWhenStopped()
+    {
+        $os = Factory::build();
+        @\unlink($os->status()->tmp()->toString().'/innmind/ipc/server.sock');
+        $processes = $os->control()->processes();
+        $processes->execute(
+            Command::foreground('php')
+                ->withArgument('fixtures/long-client-multi-message.php')
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+        );
+
+        $listen = new Unix(
+            $os->sockets(),
+            new Protocol\Binary,
+            $os->clock(),
+            $os->process()->signals(),
+            Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
+            new Timeout(100),
+            new Timeout(3000),
+        );
+
+        $carry = $listen(0, static function($_, $continuation, $carry) {
+            if ($carry === 2) {
+                return $continuation->stop($carry + 1);
+            }
+
+            return $continuation->continue($carry + 1);
+        })->match(
+            static fn($carry) => $carry,
+            static fn() => null,
+        );
+
+        $this->assertSame(3, $carry);
     }
 }

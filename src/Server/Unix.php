@@ -6,34 +6,20 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
-    Exception\Stop,
-    Exception\RuntimeException,
+    Message,
+    Continuation,
 };
 use Innmind\OperatingSystem\{
     Sockets,
     CurrentProcess\Signals,
 };
 use Innmind\Signals\Signal;
-use Innmind\Socket\{
-    Address\Unix as Address,
-    Server as ServerSocket,
-    Server\Connection,
-    Exception\Exception as Socket,
-};
-use Innmind\Stream\{
-    Watch,
-    Exception\Exception as Stream,
-    Exception\SelectFailed,
-};
+use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
-    PointInTime,
 };
-use Innmind\Immutable\{
-    Map,
-    Set,
-};
+use Innmind\Immutable\Either;
 
 final class Unix implements Server
 {
@@ -44,14 +30,6 @@ final class Unix implements Server
     private Address $address;
     private ElapsedPeriod $heartbeat;
     private ?ElapsedPeriod $timeout;
-    /** @var Map<Connection, ClientLifecycle> */
-    private Map $connections;
-    /** @psalm-suppress PropertyNotSetInConstructor Property never accessed before initialization */
-    private PointInTime $lastReceivedData;
-    private \Closure $shutdown;
-    private bool $hadActivity = false;
-    private bool $shuttingDown = false;
-    private bool $signalsRegistered = false;
 
     public function __construct(
         Sockets $sockets,
@@ -60,7 +38,7 @@ final class Unix implements Server
         Signals $signals,
         Address $address,
         ElapsedPeriod $heartbeat,
-        ElapsedPeriod $timeout = null
+        ElapsedPeriod $timeout = null,
     ) {
         $this->sockets = $sockets;
         $this->protocol = $protocol;
@@ -69,189 +47,90 @@ final class Unix implements Server
         $this->address = $address;
         $this->heartbeat = $heartbeat;
         $this->timeout = $timeout;
-        /** @var Map<Connection, ClientLifecycle> */
-        $this->connections = Map::of(Connection::class, ClientLifecycle::class);
-        $this->shutdown = function(): void {
-            $this->startShutdown();
-        };
-    }
-
-    public function __invoke(callable $listen): void
-    {
-        // reset state in case the server is restarted
-        $this->connections = $this->connections->clear();
-        $this->hadActivity = false;
-        $this->shuttingDown = false;
-        $this->lastReceivedData = $this->clock->now();
-        $this->registerSignals();
-
-        try {
-            $this->loop($listen);
-        } catch (Stop $e) {
-            $this->unregisterSignals();
-            // stop receiving messages
-        } catch (Stream | Socket $e) {
-            $this->unregisterSignals();
-
-            throw new RuntimeException('', 0, $e);
-        }
-    }
-
-    private function loop(callable $listen): void
-    {
-        $server = $this->sockets->open($this->address);
-        $watch = $this->sockets->watch($this->heartbeat)->forRead($server);
-
-        do {
-            try {
-                $ready = $watch();
-            } catch (SelectFailed $e) {
-                if ($this->shuttingDown) {
-                    $this->emergencyShutdown($server);
-
-                    return;
-                }
-
-                throw $e;
-            }
-
-            try {
-                if (!$ready->toRead()->empty()) {
-                    $this->lastReceivedData = $this->clock->now();
-                }
-
-                if ($ready->toRead()->contains($server) && !$this->shuttingDown) {
-                    $connection = $server->accept();
-                    $watch = $watch->forRead($connection);
-                    $this->connections = ($this->connections)(
-                        $connection,
-                        new ClientLifecycle(
-                            $connection,
-                            $this->protocol,
-                            $this->clock,
-                            $this->heartbeat,
-                        ),
-                    );
-                }
-
-                /** @var Set<Connection> */
-                $sockets = $ready->toRead()->remove($server);
-
-                $this->heartbeat($sockets);
-
-                $watch = $sockets->reduce(
-                    $watch,
-                    function(Watch $watch, Connection $connection) use ($listen): Watch {
-                        $lifecycle = $this->connections->get($connection);
-                        $lifecycle->notify($listen);
-
-                        if ($lifecycle->toBeGarbageCollected()) {
-                            $this->connections = $this->connections->remove($connection);
-                            $watch = $watch->unwatch($connection);
-                        }
-
-                        return $watch;
-                    },
-                );
-            } catch (\Throwable $e) {
-                if (!$e instanceof Stop) {
-                    $this->emergencyShutdown($server);
-
-                    throw $e;
-                }
-
-                $this->startShutdown();
-            }
-
-            $this->monitorTimeout();
-            $this->monitorTermination($server);
-        } while (true);
-    }
-
-    private function monitorTimeout(): void
-    {
-        if (!$this->timeout instanceof ElapsedPeriod) {
-            return;
-        }
-
-        $iteration = $this->clock->now()->elapsedSince($this->lastReceivedData);
-
-        if ($iteration->longerThan($this->timeout)) {
-            // stop execution when no activity in the given period
-            $this->startShutdown();
-        }
-    }
-
-    private function startShutdown(): void
-    {
-        if ($this->shuttingDown) {
-            return;
-        }
-
-        $this->shuttingDown = true;
-        $this
-            ->connections
-            ->values()
-            ->foreach(static function(ClientLifecycle $client): void {
-                $client->shutdown();
-            });
-    }
-
-    private function monitorTermination(ServerSocket $server): void
-    {
-        if (!$this->shuttingDown) {
-            return;
-        }
-
-        if ($this->connections->empty()) {
-            $server->close();
-
-            throw new Stop;
-        }
-    }
-
-    private function emergencyShutdown(ServerSocket $server): void
-    {
-        $this->connections->foreach(static function(Connection $connection): void {
-            $connection->close();
-        });
-        $server->close();
     }
 
     /**
-     * @param Set<Connection> $activeSockets
+     * @template C
+     *
+     * @param C $carry
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
+     *
+     * @return Either<UnableToStart, C>
      */
-    private function heartbeat(Set $activeSockets): void
+    public function __invoke(mixed $carry, callable $listen): Either
     {
-        $this
-            ->connections
-            ->filter(static function(Connection $connection) use ($activeSockets): bool {
-                return !$activeSockets->contains($connection);
-            })
-            ->values()
-            ->foreach(static function(ClientLifecycle $client): void {
-                $client->heartbeat();
-            });
-    }
+        $iteration = $this
+            ->sockets
+            ->open($this->address)
+            ->map(fn($server) => Connections::start(
+                $this->sockets->watch($this->heartbeat),
+                $server,
+            ))
+            ->map(fn($connections) => Unix\Iteration::first(
+                $this->protocol,
+                $this->clock,
+                $connections,
+                $this->heartbeat,
+                $this->timeout,
+                $carry,
+            ))
+            ->match(
+                static fn($iteration) => $iteration,
+                static fn() => null,
+            );
 
-    private function registerSignals(): void
-    {
-        if ($this->signalsRegistered) {
-            return;
+        if (\is_null($iteration)) {
+            return Either::left(new UnableToStart);
         }
 
-        $this->signals->listen(Signal::hangup(), $this->shutdown);
-        $this->signals->listen(Signal::interrupt(), $this->shutdown);
-        $this->signals->listen(Signal::abort(), $this->shutdown);
-        $this->signals->listen(Signal::terminate(), $this->shutdown);
-        $this->signals->listen(Signal::terminalStop(), $this->shutdown);
-        $this->signals->listen(Signal::alarm(), $this->shutdown);
-        $this->signalsRegistered = true;
+        $shutdown = static function() use (&$iteration): void {
+            /** @var Unix\Iteration $iteration */
+            $iteration->startShutdown();
+        };
+        $this->registerSignals($shutdown);
+
+        // we use a while loop instead of recursion to avoid too deep call stacks
+        // for long running servers
+        do {
+            try {
+                /**
+                 * @psalm-suppress MixedMethodCall Due to the reference above for the shutdown
+                 * @var Unix\Iteration<C>|C
+                 */
+                $iteration = $iteration->next($listen)->match(
+                    static fn($iteration) => $iteration,
+                    static fn($carry): mixed => $carry,
+                );
+            } catch (\Throwable $e) {
+                $this->unregisterSignals($shutdown);
+
+                throw $e;
+            }
+        } while ($iteration instanceof Unix\Iteration);
+
+        $this->unregisterSignals($shutdown);
+
+        return Either::right($iteration);
     }
 
-    private function unregisterSignals(): void
+    /**
+     * @param callable(): void $shutdown
+     */
+    private function registerSignals(callable $shutdown): void
     {
-        $this->signals->remove($this->shutdown);
-        $this->signalsRegistered = false;
+        $this->signals->listen(Signal::hangup, $shutdown);
+        $this->signals->listen(Signal::interrupt, $shutdown);
+        $this->signals->listen(Signal::abort, $shutdown);
+        $this->signals->listen(Signal::terminate, $shutdown);
+        $this->signals->listen(Signal::terminalStop, $shutdown);
+        $this->signals->listen(Signal::alarm, $shutdown);
+    }
+
+    /**
+     * @param callable(): void $shutdown
+     */
+    private function unregisterSignals(callable $shutdown): void
+    {
+        $this->signals->remove($shutdown);
     }
 }

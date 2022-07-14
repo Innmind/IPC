@@ -7,21 +7,14 @@ use Innmind\IPC\{
     Client,
     Protocol,
     Message,
-    Message\ConnectionClose,
-    Exception\MessageNotSent,
-    Exception\RuntimeException,
 };
-use Innmind\Socket\{
-    Server\Connection,
-    Exception\Exception as Socket,
-};
-use Innmind\Stream\Exception\Exception as Stream;
+use Innmind\Socket\Server\Connection;
+use Innmind\Immutable\Maybe;
 
 final class Unix implements Client
 {
     private Connection $connection;
     private Protocol $protocol;
-    private bool $closed = false;
 
     public function __construct(Connection $connection, Protocol $protocol)
     {
@@ -29,32 +22,32 @@ final class Unix implements Client
         $this->protocol = $protocol;
     }
 
-    public function send(Message $message): void
+    public function send(Message $message): Maybe
     {
-        if ($this->closed()) {
-            return;
+        if ($this->connection->closed()) {
+            /** @var Maybe<Client> */
+            return Maybe::nothing();
         }
 
-        try {
-            $this->connection->write(
-                $this->protocol->encode($message),
-            );
-        } catch (Stream | Socket $e) {
-            throw new MessageNotSent('', 0, $e);
-        }
+        /** @var Maybe<Client> */
+        return $this
+            ->connection
+            ->write($this->protocol->encode($message))
+            ->maybe()
+            ->map(fn() => $this);
     }
 
-    public function close(): void
+    public function read(): Maybe
     {
-        try {
-            $this->send(new ConnectionClose);
-        } finally {
-            $this->closed = true;
-        }
+        /** @var Maybe<array{Client, Message}> */
+        return $this
+            ->protocol
+            ->decode($this->connection)
+            ->map(fn($message) => [$this, $message]);
     }
 
-    public function closed(): bool
+    public function close(): Maybe
     {
-        return $this->closed || $this->connection->closed();
+        return $this->connection->close()->maybe();
     }
 }

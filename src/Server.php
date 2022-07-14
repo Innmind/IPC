@@ -3,10 +3,17 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
+use Innmind\Immutable\Either;
+
 interface Server
 {
     /**
-     * @param callable(Message, Client): void $listen
+     * @template C
+     *
+     * @param C $carry
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
+     *
+     * @return Either<Server\UnableToStart, C>
      */
-    public function __invoke(callable $listen): void;
+    public function __invoke(mixed $carry, callable $listen): Either;
 }

@@ -28,7 +28,7 @@ class MessageReceivedTest extends TestCase
         $message = new MessageReceived;
         $same = new Generic(
             MediaType::of('text/plain'),
-            Str::of('innmind/ipc:message.received')
+            Str::of('innmind/ipc:message.received'),
         );
         $different = new Message\Generic(
             MediaType::of('text/plain'),

@@ -22,10 +22,20 @@ $process = $ipc->wait(Name::of('server'))->match(
     static fn() => null,
 );
 $_ = $process
-    ->send(Sequence::of(new Message\Generic(
-        MediaType::of('text/plain'),
-        Str::of('hello world')
-    )))
+    ->send(Sequence::of(
+        new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('hello world'),
+        ),
+        new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('second'),
+        ),
+        new Message\Generic(
+            MediaType::of('text/plain'),
+            Str::of('third'),
+        ),
+    ))
     ->flatMap(static fn($process) => $process->wait())
     ->match(
         static fn() => null,

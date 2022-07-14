@@ -16,35 +16,50 @@ composer require innmind/ipc
 
 ```php
 # Process A
-use function Innmind\IPC\bootstrap;
-use Innmind\IPC\Process\Name;
+use Innmind\IPC\{
+    Factory as IPC,
+    Process\Name,
+};
 use Innmind\OperatingSystem\Factory;
 
-$ipc = bootstrap(Factory::build());
-$ipc->listen(new Name('a'))(static function($message, $client): void {
-    $client->send($message);
-});
+$ipc = IPC::build(Factory::build());
+$counter = $ipc->listen(Name::of('a'))(0, static function($message, $continuation, $counter): void {
+    if ($counter === 42) {
+        return $continuation->stop($counter);
+    }
+
+    return $continuation->respond($counter + 1, $message);
+})->match(
+    static fn($counter) => $counter,
+    static fn() => throw new \RuntimeException('Unable to start the server'),
+);
+// $counter will always be 42 in this case
 ```
 
 ```php
 # Process B
-use function Innmind\IPC\bootstrap;
 use Innmind\IPC\{
+    Factory as IPC,
     Process\Name,
     Message\Generic as Message,
 };
 use Innmind\OperatingSystem\Factory;
+use Innmind\Immutable\Sequence;
 
-$ipc = bootstrap(Factory::build());
-$server = new Name('a');
-$ipc->wait($server);
-$process = $ipc->get($server);
-$process->send(Message::of(
-    'text/plain',
-    'hello world',
-));
-$message = $process->wait();
-echo 'server responded '.$message->content();
+$ipc = IPC::build(Factory::build());
+$server = Name::of('a');
+$ipc
+    ->wait(Name::of('a'))
+    ->flatMap(fn($process) => $process->send(Sequence::of(
+        Message::of('text/plain', 'hello world'),
+    )))
+    ->flatMap(fn($process) => $process->wait())
+    ->match(
+        static fn($message) => print('server responded '.$message->content()->toString()),
+        static fn() => print('no response from the server'),
+    );
 ```
 
 The above example will result in the output `server responded hello world` in the process `B`.
+
+You can run the process `B` `42` times before the server in the process `A` stops.

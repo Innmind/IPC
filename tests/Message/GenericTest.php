@@ -17,7 +17,7 @@ class GenericTest extends TestCase
     {
         $message = new Generic(
             $mediaType = MediaType::null(),
-            $content = Str::of('foo')
+            $content = Str::of('foo'),
         );
 
         $this->assertInstanceOf(Message::class, $message);
@@ -40,11 +40,11 @@ class GenericTest extends TestCase
     {
         $message = new Generic(
             MediaType::of('text/plain'),
-            Str::of('watev')
+            Str::of('watev'),
         );
         $same = new Generic(
             MediaType::of('text/plain'),
-            Str::of('watev')
+            Str::of('watev'),
         );
         $different = new Message\Generic(
             MediaType::of('text/plain'),

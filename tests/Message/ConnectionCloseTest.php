@@ -28,7 +28,7 @@ class ConnectionCloseTest extends TestCase
         $message = new ConnectionClose;
         $same = new Generic(
             MediaType::of('text/plain'),
-            Str::of('innmind/ipc:connection.close')
+            Str::of('innmind/ipc:connection.close'),
         );
         $different = new Message\Generic(
             MediaType::of('text/plain'),

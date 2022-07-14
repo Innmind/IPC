@@ -1,19 +1,21 @@
 <?php
 declare(strict_types = 1);
 
-use function Innmind\IPC\bootstrap;
 use Innmind\IPC\{
+    Factory as IPC,
     Process\Name,
-    Exception\Stop,
 };
 use Innmind\OperatingSystem\Factory;
+use Innmind\Immutable\Str;
 
 require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
-$ipc = bootstrap($os);
-$ipc->listen(new Name('server'))(static function($message, $client): void {
-    $client->send($message);
-    $client->close();
-    throw new Stop;
+$ipc = IPC::build($os);
+$ipc->listen(Name::of('server'))(null, static function($message, $continuation, $carry) {
+    if ($message->content()->equals(Str::of('stop'))) {
+        return $continuation->stop($carry);
+    }
+
+    return $continuation->respond($carry, $message);
 });
