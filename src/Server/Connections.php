@@ -101,33 +101,40 @@ final class Connections
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $listen
+     * @template C
      *
-     * @return Either<self, self> Left side means the connections must be shutdown
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
+     * @param C $carry
+     *
+     * @return Either<array{self, C}, array{self, C}> Left side means the connections must be shutdown
      */
-    public function notify(Connection $connection, callable $listen): Either
-    {
+    public function notify(
+        Connection $connection,
+        callable $listen,
+        mixed $carry,
+    ): Either {
         return $this
             ->connections
             ->get($connection)
-            ->flatMap(fn($client) => $client->notify($listen))
+            ->either()
+            ->flatMap(fn($client) => $client->notify($listen, $carry))
             ->match(
                 fn($either) => $either
-                    ->map(fn($client) => new self(
+                    ->map(fn($tuple) => [new self(
                         $this->server,
                         $this->watch,
-                        ($this->connections)($connection, $client),
-                    ))
-                    ->leftMap(fn($client) => new self(
+                        ($this->connections)($connection, $tuple[0]),
+                    ), $tuple[1]])
+                    ->leftMap(fn($tuple) => [new self(
                         $this->server,
                         $this->watch,
-                        ($this->connections)($connection, $client),
-                    )),
-                fn() => Either::right(new self(
+                        ($this->connections)($connection, $tuple[0]),
+                    ), $tuple[1]]),
+                fn($carry) => Either::right([new self(
                     $this->server,
                     $this->watch->unwatch($connection),
                     $this->connections->remove($connection),
-                )),
+                ), $carry]),
             );
     }
 

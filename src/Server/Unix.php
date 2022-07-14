@@ -6,6 +6,8 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Server,
     Protocol,
+    Message,
+    Continuation,
 };
 use Innmind\OperatingSystem\{
     Sockets,
@@ -47,7 +49,15 @@ final class Unix implements Server
         $this->timeout = $timeout;
     }
 
-    public function __invoke(callable $listen): Either
+    /**
+     * @template C
+     *
+     * @param C $carry
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
+     *
+     * @return Either<UnableToStart, C>
+     */
+    public function __invoke(mixed $carry, callable $listen): Either
     {
         $iteration = $this
             ->sockets
@@ -62,6 +72,7 @@ final class Unix implements Server
                 $connections,
                 $this->heartbeat,
                 $this->timeout,
+                $carry,
             ))
             ->match(
                 static fn($iteration) => $iteration,
@@ -78,26 +89,28 @@ final class Unix implements Server
         };
         $this->registerSignals($shutdown);
 
+        // we use a while loop instead of recursion to avoid too deep call stacks
+        // for long running servers
         do {
             try {
                 /**
                  * @psalm-suppress MixedMethodCall Due to the reference above for the shutdown
-                 * @var Unix\Iteration
+                 * @var Unix\Iteration<C>|C
                  */
                 $iteration = $iteration->next($listen)->match(
                     static fn($iteration) => $iteration,
-                    static fn() => null,
+                    static fn($carry): mixed => $carry,
                 );
             } catch (\Throwable $e) {
                 $this->unregisterSignals($shutdown);
 
                 throw $e;
             }
-        } while (!\is_null($iteration));
+        } while ($iteration instanceof Unix\Iteration);
 
         $this->unregisterSignals($shutdown);
 
-        return Either::right(null);
+        return Either::right($iteration);
     }
 
     /**

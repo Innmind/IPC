@@ -8,9 +8,12 @@ use Innmind\Immutable\Either;
 interface Server
 {
     /**
-     * @param callable(Message, Continuation): Continuation $listen
+     * @template C
      *
-     * @return Either<Server\UnableToStart, null>
+     * @param C $carry
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $listen
+     *
+     * @return Either<Server\UnableToStart, C>
      */
-    public function __invoke(callable $listen): Either;
+    public function __invoke(mixed $carry, callable $listen): Either;
 }
