@@ -8,17 +8,18 @@ use Innmind\IPC\{
     Client,
     Protocol,
     Message,
-    Message\ConnectionClose,
-    Exception\MessageNotSent,
-    Exception\RuntimeException,
 };
-use Innmind\Socket\{
-    Server\Connection,
-    Exception\Exception as SocketException,
+use Innmind\Socket\Server\Connection;
+use Innmind\Stream\{
+    FailedToWriteToStream,
+    FailedToCloseStream,
 };
-use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\MediaType\MediaType;
-use Innmind\Immutable\Str;
+use Innmind\Immutable\{
+    Str,
+    Either,
+    SideEffect,
+};
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -29,8 +30,8 @@ class UnixTest extends TestCase
             Client::class,
             new Unix(
                 $this->createMock(Connection::class),
-                $this->createMock(Protocol::class)
-            )
+                $this->createMock(Protocol::class),
+            ),
         );
     }
 
@@ -38,102 +39,64 @@ class UnixTest extends TestCase
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $protocol = $this->createMock(Protocol::class),
         );
         $message = $this->createMock(Message::class);
         $connection
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of('watev'));
+            ->with(Str::of('watev'))
+            ->willReturn(Either::right($connection));
         $protocol
             ->expects($this->once())
             ->method('encode')
             ->with($message)
             ->willReturn(Str::of('watev'));
 
-        $this->assertNull($client->send($message));
-        $this->assertFalse($client->closed());
+        $this->assertSame($client, $client->send($message)->match(
+            static fn($client) => $client,
+            static fn() => null,
+        ));
     }
 
     public function testClose()
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
+            $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
+            ->method('close')
+            ->willReturn(Either::right($expected = new SideEffect));
 
-        $this->assertFalse($client->closed());
-        $this->assertNull($client->close());
-        $this->assertTrue($client->closed());
+        $this->assertSame($expected, $client->close()->match(
+            static fn($sideEffect) => $sideEffect,
+            static fn() => null,
+        ));
     }
 
     public function testDoesntSendOnceClosed()
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
-        );
-        $message = $this->createMock(Message::class);
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
-
-        $client->close();
-        $this->assertNull($client->send($message));
-        $this->assertTrue($client->closed());
-    }
-
-    public function testDoesntReCloseIfAlreadyClosed()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class)
-        );
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->with(Str::of('watev'));
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with(new ConnectionClose)
-            ->willReturn(Str::of('watev'));
-
-        $client->close();
-        $this->assertNull($client->close());
-        $this->assertTrue($client->closed());
-    }
-
-    public function testConsideredClientClosedWhenConnectionClosed()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $this->createMock(Protocol::class)
+            $this->createMock(Protocol::class),
         );
         $connection
             ->expects($this->once())
             ->method('closed')
             ->willReturn(true);
+        $connection
+            ->expects($this->never())
+            ->method('write');
 
-        $this->assertTrue($client->closed());
+        $this->assertNull($client->send($this->createMock(Message::class))->match(
+            static fn($client) => $client,
+            static fn() => null,
+        ));
     }
 
-    public function testThrowWhenCantSendMessageDueToSocketError()
+    public function testReturnNothingWhenCantSendMessageDueToSocketError()
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
@@ -151,83 +114,31 @@ class UnixTest extends TestCase
         $connection
             ->expects($this->once())
             ->method('write')
-            ->will($this->throwException($this->createMock(SocketException::class)));
+            ->willReturn(Either::left(new FailedToWriteToStream));
 
-        $this->expectException(MessageNotSent::class);
-
-        $client->send($message);
+        $this->assertNull($client->send($message)->match(
+            static fn($client) => $client,
+            static fn() => null,
+        ));
     }
 
-    public function testThrowWhenCantSendMessageDueToStreamError()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class),
-        );
-        $message = new Message\Generic(
-            MediaType::of('text/plain'),
-            Str::of('watev'),
-        );
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->with($message)
-            ->willReturn(Str::of('watev'));
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->will($this->throwException($this->createMock(StreamException::class)));
-
-        $this->expectException(MessageNotSent::class);
-
-        $client->send($message);
-    }
-
-    public function testThrowWhenCantProperlyCloseDueToSocketError()
+    public function testReturnNothingWhenCantProperlyCloseDueToSocketError()
     {
         $client = new Unix(
             $connection = $this->createMock(Connection::class),
             $protocol = $this->createMock(Protocol::class),
         );
         $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->willReturn(Str::of('watev'));
+            ->expects($this->never())
+            ->method('encode');
         $connection
             ->expects($this->once())
-            ->method('write')
-            ->will($this->throwException($this->createMock(SocketException::class)));
+            ->method('close')
+            ->willReturn(Either::left(new FailedToCloseStream));
 
-        try {
-            $client->close();
-
-            $this->fail('it should throw');
-        } catch (MessageNotSent $e) {
-            $this->assertTrue($client->closed());
-        }
-    }
-
-    public function testThrowWhenCantProperlyCloseDueToStreamError()
-    {
-        $client = new Unix(
-            $connection = $this->createMock(Connection::class),
-            $protocol = $this->createMock(Protocol::class),
-        );
-        $protocol
-            ->expects($this->once())
-            ->method('encode')
-            ->willReturn(Str::of('watev'));
-        $connection
-            ->expects($this->once())
-            ->method('write')
-            ->will($this->throwException($this->createMock(StreamException::class)));
-
-        try {
-            $client->close();
-
-            $this->fail('it should throw');
-        } catch (MessageNotSent $e) {
-            $this->assertTrue($client->closed());
-        }
+        $this->assertNull($client->close()->match(
+            static fn($sideEffect) => $sideEffect,
+            static fn() => null,
+        ));
     }
 }

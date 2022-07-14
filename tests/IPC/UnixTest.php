@@ -11,6 +11,7 @@ use Innmind\IPC\{
     Process,
     Process\Name,
     Message\ConnectionStart,
+    Message\ConnectionStartOk,
     Exception\LogicException,
 };
 use Innmind\OperatingSystem\{
@@ -33,11 +34,11 @@ use Innmind\TimeContinuum\{
 use Innmind\Socket\Client;
 use Innmind\Stream\Watch\Select;
 use Innmind\Immutable\{
-    Map,
     Set,
     Str,
+    Maybe,
+    Either,
 };
-use function Innmind\Immutable\unwrap;
 use PHPUnit\Framework\TestCase;
 
 class UnixTest extends TestCase
@@ -53,8 +54,8 @@ class UnixTest extends TestCase
                 $this->createMock(CurrentProcess::class),
                 $this->createMock(Protocol::class),
                 Path::of('/tmp/somewhere/'),
-                new Timeout(1000)
-            )
+                new Timeout(1000),
+            ),
         );
     }
 
@@ -70,7 +71,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/somewhere'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
     }
 
@@ -83,17 +84,16 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
             ->method('all')
             ->willReturn(
                 Set::of(
-                    File::class,
                     $foo = $this->createMock(File::class),
                     $bar = $this->createMock(File::class),
-                )
+                ),
             );
         $foo
             ->method('name')
@@ -105,9 +105,8 @@ class UnixTest extends TestCase
         $processes = $ipc->processes();
 
         $this->assertInstanceOf(Set::class, $processes);
-        $this->assertSame(Process\Name::class, (string) $processes->type());
         $this->assertCount(2, $processes);
-        $processes = unwrap($processes);
+        $processes = $processes->toList();
 
         $foo = \current($processes);
         $this->assertSame('foo', $foo->toString());
@@ -116,7 +115,7 @@ class UnixTest extends TestCase
         $this->assertSame('bar', $bar->toString());
     }
 
-    public function testThrowWhenGettingUnknownProcess()
+    public function testReturnNothingWhenGettingUnknownProcess()
     {
         $ipc = new Unix(
             $this->createMock(Sockets::class),
@@ -125,7 +124,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/somewhere/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
@@ -133,9 +132,10 @@ class UnixTest extends TestCase
             ->with(new FileName('foo.sock'))
             ->willReturn(false);
 
-        $this->expectException(LogicException::class);
-
-        $ipc->get(new Name('foo'));
+        $this->assertNull($ipc->get(Name::of('foo'))->match(
+            static fn($foo) => $foo,
+            static fn() => null,
+        ));
     }
 
     public function testGetProcess()
@@ -147,7 +147,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            $heartbeat = new Timeout(1000)
+            $heartbeat = new Timeout(1000),
         );
         $filesystem
             ->expects($this->once())
@@ -157,17 +157,21 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->once())
             ->method('connectTo')
-            ->willReturn($client = $this->createMock(Client::class));
+            ->willReturn(Maybe::just($client = $this->createMock(Client::class)));
         $sockets
             ->expects($this->once())
             ->method('watch')
             ->with($heartbeat)
-            ->willReturn(new Select($heartbeat));
+            ->willReturn(Select::timeoutAfter($heartbeat));
         $resource = \tmpfile();
         $client
             ->expects($this->any())
             ->method('resource')
             ->willReturn($resource);
+        $client
+            ->expects($this->any())
+            ->method('write')
+            ->willReturn(Either::right($client));
         $protocol
             ->expects($this->once())
             ->method('encode')
@@ -175,9 +179,12 @@ class UnixTest extends TestCase
         $protocol
             ->expects($this->once())
             ->method('decode')
-            ->willReturn(new ConnectionStart);
+            ->willReturn(Maybe::just(new ConnectionStart));
 
-        $foo = $ipc->get(new Name('foo'));
+        $foo = $ipc->get(Name::of('foo'))->match(
+            static fn($foo) => $foo,
+            static fn() => null,
+        );
 
         $this->assertInstanceOf(Process\Unix::class, $foo);
         $this->assertSame('foo', $foo->name()->toString());
@@ -192,7 +199,7 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $filesystem
             ->expects($this->exactly(2))
@@ -200,8 +207,8 @@ class UnixTest extends TestCase
             ->with(new FileName('foo.sock'))
             ->will($this->onConsecutiveCalls(true, false));
 
-        $this->assertTrue($ipc->exist(new Name('foo')));
-        $this->assertFalse($ipc->exist(new Name('foo')));
+        $this->assertTrue($ipc->exist(Name::of('foo')));
+        $this->assertFalse($ipc->exist(Name::of('foo')));
     }
 
     public function testListen()
@@ -213,12 +220,12 @@ class UnixTest extends TestCase
             $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
 
         $server = $ipc->listen(
-            new Name('bar'),
-            $this->createMock(ElapsedPeriod::class)
+            Name::of('bar'),
+            $this->createMock(ElapsedPeriod::class),
         );
 
         $this->assertInstanceOf(Server\Unix::class, $server);
@@ -227,25 +234,56 @@ class UnixTest extends TestCase
     public function testWait()
     {
         $ipc = new Unix(
-            $this->createMock(Sockets::class),
+            $sockets = $this->createMock(Sockets::class),
             $filesystem = $this->createMock(Adapter::class),
             $this->createMock(Clock::class),
             $process = $this->createMock(CurrentProcess::class),
-            $this->createMock(Protocol::class),
+            $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            $timeout = new Timeout(1000),
         );
         $filesystem
-            ->expects($this->exactly(3))
+            ->expects($this->exactly(4))
             ->method('contains')
             ->with(new FileName('foo.sock'))
-            ->will($this->onConsecutiveCalls(false, false, true));
+            ->will($this->onConsecutiveCalls(false, false, true, true));
         $process
             ->expects($this->exactly(2))
             ->method('halt')
             ->with(new Millisecond(1000));
+        $sockets
+            ->expects($this->once())
+            ->method('connectTo')
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+        $sockets
+            ->expects($this->once())
+            ->method('watch')
+            ->with($timeout)
+            ->willReturn(Select::timeoutAfter($timeout));
+        $resource = \tmpfile();
+        $socket
+            ->expects($this->any())
+            ->method('resource')
+            ->willReturn($resource);
+        $protocol
+            ->expects($this->once())
+            ->method('decode')
+            ->with($socket)
+            ->willReturn(Maybe::just(new ConnectionStart));
+        $protocol
+            ->expects($this->once())
+            ->method('encode')
+            ->with(new ConnectionStartOk)
+            ->willReturn(Str::of('start-ok'));
+        $socket
+            ->method('write')
+            ->with(Str::of('start-ok'))
+            ->willReturn(Either::right($socket));
 
-        $this->assertNull($ipc->wait(new Name('foo')));
+        $this->assertInstanceOf(Process::class, $ipc->wait(Name::of('foo'))->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 
     public function testStopWaitingWhenTimeoutExceeded()
@@ -257,7 +295,7 @@ class UnixTest extends TestCase
             $process = $this->createMock(CurrentProcess::class),
             $this->createMock(Protocol::class),
             Path::of('/tmp/'),
-            new Timeout(1000)
+            new Timeout(1000),
         );
         $timeout = $this->createMock(ElapsedPeriod::class);
         $filesystem
@@ -297,6 +335,9 @@ class UnixTest extends TestCase
             ->with($timeout)
             ->willReturn(true);
 
-        $this->assertNull($ipc->wait(new Name('foo'), $timeout));
+        $this->assertNull($ipc->wait(Name::of('foo'), $timeout)->match(
+            static fn($process) => $process,
+            static fn() => null,
+        ));
     }
 }

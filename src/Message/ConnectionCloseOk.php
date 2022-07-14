@@ -7,6 +7,9 @@ use Innmind\IPC\Message;
 use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
+/**
+ * @psalm-immutable
+ */
 final class ConnectionCloseOk implements Message
 {
     private MediaType $mediaType;

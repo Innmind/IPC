@@ -3,19 +3,21 @@ declare(strict_types = 1);
 
 namespace Tests\Innmind\IPC;
 
-use function Innmind\IPC\bootstrap;
-use Innmind\IPC\IPC;
+use Innmind\IPC\{
+    Factory,
+    IPC,
+};
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Url\Path;
 use PHPUnit\Framework\TestCase;
 
-class BootstrapTest extends TestCase
+class FactoryTest extends TestCase
 {
-    public function testInterface()
+    public function testBuild()
     {
         $this->assertInstanceOf(
             IPC::class,
-            bootstrap(
+            Factory::build(
                 $this->createMock(OperatingSystem::class),
                 Path::of('/tmp/innmind/ipc/'),
             ),

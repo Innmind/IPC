@@ -4,134 +4,94 @@ declare(strict_types = 1);
 namespace Innmind\IPC\Server;
 
 use Innmind\IPC\{
-    Protocol,
+    Server\ClientLifecycle\State,
     Message,
     Message\ConnectionStart,
-    Message\ConnectionStartOk,
     Message\ConnectionClose,
-    Message\ConnectionCloseOk,
-    Message\MessageReceived,
     Message\Heartbeat,
     Client,
-    Exception\NoMessage,
-    Exception\MessageNotSent,
+    Continuation,
 };
-use Innmind\Socket\{
-    Server\Connection,
-    Exception\Exception as SocketException,
-};
-use Innmind\Stream\Exception\Exception as StreamException;
 use Innmind\TimeContinuum\{
     Clock,
     ElapsedPeriod,
     PointInTime,
 };
+use Innmind\Immutable\{
+    Maybe,
+    Either,
+};
 
 final class ClientLifecycle
 {
-    private Connection $connection;
-    private Protocol $protocol;
     private Clock $clock;
     private Client $client;
     private ElapsedPeriod $heartbeat;
     private PointInTime $lastHeartbeat;
-    private bool $pendingStartOk = false;
-    private bool $pendingCloseOk = false;
-    private bool $garbage = false;
+    private State $state;
 
-    public function __construct(
-        Connection $connection,
-        Protocol $protocol,
+    private function __construct(
         Clock $clock,
-        ElapsedPeriod $heartbeat
+        ElapsedPeriod $heartbeat,
+        Client $client,
+        PointInTime $lastHeartbeat,
+        State $state,
     ) {
-        $this->connection = $connection;
-        $this->protocol = $protocol;
         $this->clock = $clock;
         $this->heartbeat = $heartbeat;
-        $this->client = new Client\Unix($connection, $protocol);
-        $this->greet();
+        $this->client = $client;
+        $this->lastHeartbeat = $lastHeartbeat;
+        $this->state = $state;
     }
 
-    public function notify(callable $notify): void
-    {
-        if ($this->toBeGarbageCollected()) {
-            return;
-        }
-
-        try {
-            $message = $this->read();
-            $this->lastHeartbeat = $this->clock->now();
-        } catch (NoMessage $e) {
-            return;
-        }
-
-        if ($this->pendingStartOk && !$message->equals(new ConnectionStartOk)) {
-            return;
-        }
-
-        if ($this->pendingStartOk && $message->equals(new ConnectionStartOk)) {
-            $this->pendingStartOk = false;
-
-            return;
-        }
-
-        if ($message->equals(new ConnectionClose)) {
-            try {
-                $this->client->send(new ConnectionCloseOk);
-                $this->connection->close();
-            } catch (MessageNotSent $e) {
-                // nothing to do
-            } finally {
-                $this->garbage = true;
-
-                return;
-            }
-        }
-
-        if ($this->pendingCloseOk && !$message->equals(new ConnectionCloseOk)) {
-            return;
-        }
-
-        if ($this->pendingCloseOk && $message->equals(new ConnectionCloseOk)) {
-            try {
-                $this->connection->close();
-            } catch (StreamException | SocketException $e) {
-                // nothing to do
-            } finally {
-                $this->pendingCloseOk = false;
-                $this->garbage = true;
-
-                return;
-            }
-        }
-
-        if (
-            $message->equals(new ConnectionStart) ||
-            $message->equals(new ConnectionStartOk) ||
-            $message->equals(new ConnectionClose) ||
-            $message->equals(new ConnectionCloseOk) ||
-            $message->equals(new MessageReceived) ||
-            $message->equals(new Heartbeat)
-        ) {
-            // never notify with a protocol message
-            return;
-        }
-
-        $this->client->send(new MessageReceived);
-        $notify($message, $this->client);
-
-        if ($this->client->closed()) {
-            $this->pendingCloseOk = true;
-        }
+    /**
+     * @return Maybe<self>
+     */
+    public static function of(
+        Client $client,
+        Clock $clock,
+        ElapsedPeriod $heartbeat,
+    ): Maybe {
+        return $client
+            ->send(new ConnectionStart)
+            ->map(static fn($client) => new self(
+                $clock,
+                $heartbeat,
+                $client,
+                $clock->now(),
+                State::pendingStartOk,
+            ));
     }
 
-    public function heartbeat(): void
+    /**
+     * @template C
+     *
+     * @param callable(Message, Continuation<C>, C): Continuation<C> $notify
+     * @param C $carry
+     *
+     * @return Either<C, Either<array{self, C}, array{self, C}>> Left side of Either means the notify asked the server to stop
+     */
+    public function notify(callable $notify, mixed $carry): Either
     {
-        if ($this->toBeGarbageCollected()) {
-            return;
-        }
+        return $this
+            ->client
+            ->read()
+            ->either()
+            ->flatMap(fn($tuple) => $this->state->actUpon(
+                $tuple[0],
+                $tuple[1],
+                $notify,
+                $carry,
+            ))
+            ->map(
+                fn($either) => $either
+                    ->map($this->update(...))
+                    ->leftMap($this->update(...)),
+            );
+    }
 
+    public function heartbeat(): self
+    {
         $trigger = $this
             ->clock
             ->now()
@@ -139,50 +99,66 @@ final class ClientLifecycle
             ->longerThan($this->heartbeat);
 
         if ($trigger) {
-            try {
-                $this->client->send(new Heartbeat);
-            } catch (MessageNotSent $e) {
-                // happens when the client has been forced closed (for example
-                // with a `kill -9` on the client process)
-            }
+            // do nothing when failling to send the message as it happens when
+            // the client has been forced closed (for example with a `kill -9`
+            // on the client process)
+            $client = $this->client->send(new Heartbeat)->match(
+                static fn($client) => $client,
+                fn() => $this->client,
+            );
+
+            return new self(
+                $this->clock,
+                $this->heartbeat,
+                $client,
+                $this->lastHeartbeat,
+                $this->state,
+            );
         }
+
+        return $this;
     }
 
-    public function shutdown(): void
+    /**
+     * @return Maybe<self>
+     */
+    public function shutdown(): Maybe
     {
-        if ($this->toBeGarbageCollected()) {
-            return;
-        }
-
-        try {
-            $this->client->close();
-            $this->pendingCloseOk = true;
-            $this->pendingStartOk = false;
-        } catch (MessageNotSent $e) {
-            $this->garbage = true;
-        }
+        return match ($this->state) {
+            State::pendingCloseOk => Maybe::just($this),
+            default => $this
+                ->client
+                ->send(new ConnectionClose)
+                ->map($this->pendingCloseOk(...)),
+        };
     }
 
-    public function toBeGarbageCollected(): bool
+    private function pendingCloseOk(Client $client): self
     {
-        return $this->garbage;
+        return new self(
+            $this->clock,
+            $this->heartbeat,
+            $client,
+            $this->lastHeartbeat,
+            State::pendingCloseOk,
+        );
     }
 
-    private function greet(): void
+    /**
+     * @template C
+     *
+     * @param array{Client, State, C} $tuple
+     *
+     * @return array{self, C}
+     */
+    private function update(array $tuple): array
     {
-        $this->client->send(new ConnectionStart);
-        $this->lastHeartbeat = $this->clock->now();
-        $this->pendingStartOk = true;
-    }
-
-    private function read(): Message
-    {
-        try {
-            return $this->protocol->decode($this->connection);
-        } catch (NoMessage $e) {
-            $this->garbage = true;
-
-            throw $e;
-        }
+        return [new self(
+            $this->clock,
+            $this->heartbeat,
+            $tuple[0],
+            $this->clock->now(),
+            $tuple[1],
+        ), $tuple[2]];
     }
 }

@@ -28,7 +28,7 @@ class HeartbeatTest extends TestCase
         $message = new Heartbeat;
         $same = new Generic(
             MediaType::of('text/plain'),
-            Str::of('innmind/ipc:heartbeat')
+            Str::of('innmind/ipc:heartbeat'),
         );
         $different = new Message\Generic(
             MediaType::of('text/plain'),
