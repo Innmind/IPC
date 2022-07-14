@@ -46,7 +46,6 @@ final class Connections
         /** @var Map<Connection, ClientLifecycle> */
         $connections = Map::of();
 
-        /** @psalm-suppress InvalidArgument TODO FIX */
         return new self(
             $server,
             $watch->forRead($server),
