@@ -132,7 +132,7 @@ class UnixTest extends TestCase
             ->with(new FileName('foo.sock'))
             ->willReturn(false);
 
-        $this->assertNull($ipc->get(new Name('foo'))->match(
+        $this->assertNull($ipc->get(Name::of('foo'))->match(
             static fn($foo) => $foo,
             static fn() => null,
         ));
@@ -181,7 +181,7 @@ class UnixTest extends TestCase
             ->method('decode')
             ->willReturn(Maybe::just(new ConnectionStart));
 
-        $foo = $ipc->get(new Name('foo'))->match(
+        $foo = $ipc->get(Name::of('foo'))->match(
             static fn($foo) => $foo,
             static fn() => null,
         );
@@ -207,8 +207,8 @@ class UnixTest extends TestCase
             ->with(new FileName('foo.sock'))
             ->will($this->onConsecutiveCalls(true, false));
 
-        $this->assertTrue($ipc->exist(new Name('foo')));
-        $this->assertFalse($ipc->exist(new Name('foo')));
+        $this->assertTrue($ipc->exist(Name::of('foo')));
+        $this->assertFalse($ipc->exist(Name::of('foo')));
     }
 
     public function testListen()
@@ -224,7 +224,7 @@ class UnixTest extends TestCase
         );
 
         $server = $ipc->listen(
-            new Name('bar'),
+            Name::of('bar'),
             $this->createMock(ElapsedPeriod::class),
         );
 
@@ -280,7 +280,7 @@ class UnixTest extends TestCase
             ->with(Str::of('start-ok'))
             ->willReturn(Either::right($socket));
 
-        $this->assertInstanceOf(Process::class, $ipc->wait(new Name('foo'))->match(
+        $this->assertInstanceOf(Process::class, $ipc->wait(Name::of('foo'))->match(
             static fn($process) => $process,
             static fn() => null,
         ));
@@ -335,7 +335,7 @@ class UnixTest extends TestCase
             ->with($timeout)
             ->willReturn(true);
 
-        $this->assertNull($ipc->wait(new Name('foo'), $timeout)->match(
+        $this->assertNull($ipc->wait(Name::of('foo'), $timeout)->match(
             static fn($process) => $process,
             static fn() => null,
         ));

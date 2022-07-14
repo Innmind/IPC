@@ -88,7 +88,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -135,7 +135,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            new Name('foo'),
+            Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -197,7 +197,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -262,7 +262,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -325,7 +325,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -389,7 +389,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -447,7 +447,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -505,7 +505,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -574,7 +574,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -632,7 +632,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -695,7 +695,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -759,7 +759,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            $name = new Name('foo'),
+            $name = Name::of('foo'),
             $timeout,
         )->match(
             static fn($process) => $process,
@@ -791,7 +791,7 @@ class UnixTest extends TestCase
             new Protocol\Binary,
             $os->clock(),
             Address::of($os->status()->tmp()->toString().'/innmind/ipc/server'),
-            $name = new Name('server'),
+            $name = Name::of('server'),
             new Timeout(1000),
         )->match(
             static fn($process) => $process,
@@ -830,7 +830,7 @@ class UnixTest extends TestCase
             $protocol,
             $this->createMock(Clock::class),
             $address,
-            new Name('foo'),
+            Name::of('foo'),
             new Timeout(1000),
         )->match(
             static fn($process) => $process,

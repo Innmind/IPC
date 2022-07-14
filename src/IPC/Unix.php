@@ -64,10 +64,15 @@ final class Unix implements IPC
 
     public function processes(): Set
     {
+        /** @var Set<Process\Name> */
         return $this
             ->filesystem
             ->all()
-            ->map(static fn($file) => new Process\Name($file->name()->toString()));
+            ->map(static fn($file) => Process\Name::maybe($file->name()->toString())->match(
+                static fn($name) => $name,
+                static fn() => null,
+            ))
+            ->filter(static fn($name) => $name instanceof Process\Name);
     }
 
     public function get(Process\Name $name): Maybe

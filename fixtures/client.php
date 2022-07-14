@@ -18,7 +18,7 @@ require __DIR__.'/../vendor/autoload.php';
 
 $os = Factory::build();
 $ipc = IPC::build($os);
-$process = $ipc->wait(new Name('server'))->match(
+$process = $ipc->wait(Name::of('server'))->match(
     static fn($process) => $process,
     static fn() => null,
 );
