@@ -106,7 +106,7 @@ final class Connections
      * @param callable(Message, Continuation<C>): Continuation<C> $listen
      * @param C $carry
      *
-     * @return Either<self, self> Left side means the connections must be shutdown
+     * @return Either<array{self, C}, array{self, C}> Left side means the connections must be shutdown
      */
     public function notify(
         Connection $connection,
@@ -119,21 +119,21 @@ final class Connections
             ->flatMap(fn($client) => $client->notify($listen, $carry))
             ->match(
                 fn($either) => $either
-                    ->map(fn($client) => new self(
+                    ->map(fn($client) => [new self(
                         $this->server,
                         $this->watch,
                         ($this->connections)($connection, $client),
-                    ))
-                    ->leftMap(fn($client) => new self(
+                    ), $carry])
+                    ->leftMap(fn($client) => [new self(
                         $this->server,
                         $this->watch,
                         ($this->connections)($connection, $client),
-                    )),
-                fn() => Either::right(new self(
+                    ), $carry]),
+                fn() => Either::right([new self(
                     $this->server,
                     $this->watch->unwatch($connection),
                     $this->connections->remove($connection),
-                )),
+                ), $carry]),
             );
     }
 

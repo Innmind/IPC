@@ -96,8 +96,7 @@ final class Iteration
             ->state
             ->watch($this->connections)
             ->either()
-            ->flatMap(fn($active) => $this->act($active, $listen))
-            ->leftMap(fn() => $this->carry);
+            ->flatMap(fn($active) => $this->act($active, $listen));
     }
 
     /**
@@ -134,10 +133,10 @@ final class Iteration
             ->flatMap($this->monitorTimeout(...))
             ->map($this->monitorTermination(...))
             ->match(
-                fn($connections) => $connections->map(fn($connections) => new self(
+                fn($connections) => $connections->map(fn($tuple) => new self(
                     $this->protocol,
                     $this->clock,
-                    $connections,
+                    $tuple[0],
                     $this->heartbeat,
                     $this->timeout,
                     match ($active->clients()->empty()) {
@@ -145,7 +144,7 @@ final class Iteration
                         false => $this->clock->now(),
                     },
                     $this->state,
-                    $this->carry,
+                    $tuple[1],
                 )),
                 static fn($shuttingDown) => Either::right($shuttingDown),
             );
@@ -173,7 +172,7 @@ final class Iteration
      * @param Set<Connection> $active
      * @param callable(Message, Continuation): Continuation $listen
      *
-     * @return Either<Connections, Connections> Left side means the connections must be shutdown
+     * @return Either<array{Connections, C}, array{Connections, C}> Left side means the connections must be shutdown
      */
     private function notify(
         Set $active,
@@ -181,61 +180,73 @@ final class Iteration
         callable $listen,
     ): Either {
         /**
+         * Errors are due to the weak typing of the tuples
          * @psalm-suppress MixedArgumentTypeCoercion
-         * @var Either<Connections, Connections>
+         * @psalm-suppress MixedInferredReturnType
+         * @psalm-suppress MixedReturnStatement
+         * @psalm-suppress MixedMethodCall
+         * @var Either<array{Connections, C}, array{Connections, C}>
          */
         return $active->reduce(
-            Either::right($connections),
-            fn(Either $either, $connection) => $either->flatMap(
-                fn(Connections $connections) => $connections->notify(
+            Either::right([$connections, $this->carry]),
+            static fn(Either $either, $connection): Either => $either->flatMap(
+                static fn(array $tuple): Either => $tuple[0]->notify(
                     $connection,
                     $listen,
-                    $this->carry,
+                    $tuple[1],
                 ),
             ),
         );
     }
 
-    private function shutdown(Connections $connections): self
+    /**
+     * @param array{Connections, C} $tuple
+     */
+    private function shutdown(array $tuple): self
     {
         return new self(
             $this->protocol,
             $this->clock,
-            $this->state->shutdown($connections),
+            $this->state->shutdown($tuple[0]),
             $this->heartbeat,
             $this->timeout,
             $this->clock->now(),
             State::shuttingDown,
-            $this->carry,
+            $tuple[1],
         );
     }
 
     /**
-     * @return Either<self, Connections>
+     * @param array{Connections, C} $tuple
+     *
+     * @return Either<self, array{Connections, C}>
      */
-    private function monitorTimeout(Connections $connections): Either
+    private function monitorTimeout(array $tuple): Either
     {
         if (!$this->timeout) {
-            return Either::right($connections);
+            return Either::right($tuple);
         }
 
         $iterationDuration = $this->clock->now()->elapsedSince($this->lastActivity);
 
         return match ($iterationDuration->longerThan($this->timeout)) {
-            true => Either::left($this->shutdown($connections)),
-            false => Either::right($connections),
+            true => Either::left($this->shutdown($tuple)),
+            false => Either::right($tuple),
         };
     }
 
     /**
-     * @return Either<C, Connections>
+     * @param array{Connections, C} $tuple
+     *
+     * @return Either<C, array{Connections, C}>
      */
-    private function monitorTermination(Connections $connections): Either
+    private function monitorTermination(array $tuple): Either
     {
         return $this
             ->state
-            ->terminate($connections)
+            ->terminate($tuple[0])
             ->either()
-            ->leftMap(fn() => $this->carry);
+            ->map(static fn($connections) => [$connections, $tuple[1]])
+            ->leftMap(static fn() => $tuple[1]);
     }
 }
