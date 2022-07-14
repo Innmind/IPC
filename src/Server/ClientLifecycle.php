@@ -119,10 +119,13 @@ final class ClientLifecycle
      */
     public function shutdown(): Maybe
     {
-        return $this
-            ->client
-            ->send(new ConnectionClose)
-            ->map($this->pendingCloseOk(...));
+        return match ($this->state) {
+            State::pendingCloseOk => Maybe::just($this),
+            default => $this
+                ->client
+                ->send(new ConnectionClose)
+                ->map($this->pendingCloseOk(...)),
+        };
     }
 
     private function pendingCloseOk(Client $client): self
