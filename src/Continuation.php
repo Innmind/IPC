@@ -4,22 +4,30 @@ declare(strict_types = 1);
 namespace Innmind\IPC;
 
 /**
+ * @template T
  * @psalm-immutable
  */
 final class Continuation
 {
     private Client $client;
+    /** @var T */
+    private mixed $carry;
     private bool $closed;
     private ?Message $response;
     private bool $stop;
 
+    /**
+     * @param T $carry
+     */
     private function __construct(
         Client $client,
+        mixed $carry,
         bool $closed = false,
         Message $response = null,
         bool $stop = false,
     ) {
         $this->client = $client;
+        $this->carry = $carry;
         $this->closed = $closed;
         $this->response = $response;
         $this->stop = $stop;
@@ -27,34 +35,53 @@ final class Continuation
 
     /**
      * @internal
+     * @template A
+     *
+     * @param A $carry
+     *
+     * @return self<A>
      */
-    public static function start(Client $client): self
+    public static function start(Client $client, mixed $carry): self
     {
-        return new self($client);
+        return new self($client, $carry);
+    }
+
+    /**
+     * @return T
+     */
+    public function carried(): mixed
+    {
+        return $this->carry;
     }
 
     /**
      * This will send the given message to the client
+     *
+     * @return self<T>
      */
     public function respond(Message $message): self
     {
-        return new self($this->client, response: $message);
+        return new self($this->client, $this->carry, response: $message);
     }
 
     /**
      * The client will be closed and then garbage collected
+     *
+     * @return self<T>
      */
     public function close(): self
     {
-        return new self($this->client, closed: true);
+        return new self($this->client, $this->carry, closed: true);
     }
 
     /**
      * The server will be gracefully shutdown
+     *
+     * @return self<T>
      */
     public function stop(): self
     {
-        return new self($this->client, stop: true);
+        return new self($this->client, $this->carry, stop: true);
     }
 
     /**

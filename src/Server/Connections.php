@@ -101,16 +101,22 @@ final class Connections
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $listen
+     * @template C
+     *
+     * @param callable(Message, Continuation<C>): Continuation<C> $listen
+     * @param C $carry
      *
      * @return Either<self, self> Left side means the connections must be shutdown
      */
-    public function notify(Connection $connection, callable $listen): Either
-    {
+    public function notify(
+        Connection $connection,
+        callable $listen,
+        mixed $carry,
+    ): Either {
         return $this
             ->connections
             ->get($connection)
-            ->flatMap(fn($client) => $client->notify($listen))
+            ->flatMap(fn($client) => $client->notify($listen, $carry))
             ->match(
                 fn($either) => $either
                     ->map(fn($client) => new self(

@@ -64,11 +64,14 @@ final class ClientLifecycle
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $notify
+     * @template C
+     *
+     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param C $carry
      *
      * @return Maybe<Either<self, self>> Left side of Either means the notify asked the server to stop
      */
-    public function notify(callable $notify): Maybe
+    public function notify(callable $notify, mixed $carry): Maybe
     {
         return $this
             ->client
@@ -77,6 +80,7 @@ final class ClientLifecycle
                 $tuple[0],
                 $tuple[1],
                 $notify,
+                $carry,
             ))
             ->map(
                 fn($either) => $either

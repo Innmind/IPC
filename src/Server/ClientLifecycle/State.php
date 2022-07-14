@@ -26,7 +26,10 @@ enum State
     case pendingCloseOk;
 
     /**
-     * @param callable(Message, Continuation): Continuation $notify
+     * @template C
+     *
+     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param C $carry
      *
      * @return Maybe<Either<array{Client, self}, array{Client, self}>> Left side of Either means stop th server
      */
@@ -34,6 +37,7 @@ enum State
         Client $client,
         Message $message,
         callable $notify,
+        mixed $carry,
     ): Maybe {
         /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
         return match ($this) {
@@ -45,6 +49,7 @@ enum State
                 $client,
                 $message,
                 $notify,
+                $carry,
             ),
             self::pendingCloseOk => $this->ackCloseOk($client, $message),
         };
@@ -60,7 +65,10 @@ enum State
     }
 
     /**
-     * @param callable(Message, Continuation): Continuation $notify
+     * @template C
+     *
+     * @param callable(Message, Continuation<C>): Continuation<C> $notify
+     * @param C $carry
      *
      * @return Maybe<Either<array{Client, self}, array{Client, self}>>
      */
@@ -68,6 +76,7 @@ enum State
         Client $client,
         Message $message,
         callable $notify,
+        mixed $carry,
     ): Maybe {
         if ($message->equals(new ConnectionClose)) {
             /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
@@ -92,7 +101,10 @@ enum State
 
         return $client
             ->send(new MessageReceived)
-            ->map(static fn($client) => $notify($message, Continuation::start($client)))
+            ->map(static fn($client) => $notify(
+                $message,
+                Continuation::start($client, $carry),
+            ))
             ->flatMap($this->determineNextState(...));
     }
 
@@ -113,6 +125,10 @@ enum State
     }
 
     /**
+     * @template C
+     *
+     * @param Continuation<C> $continuation
+     *
      * @return Maybe<Either<array{Client, self}, array{Client, self}>>
      */
     private function determineNextState(Continuation $continuation): Maybe

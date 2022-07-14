@@ -186,8 +186,12 @@ final class Iteration
          */
         return $active->reduce(
             Either::right($connections),
-            static fn(Either $either, $connection) => $either->flatMap(
-                static fn(Connections $connections) => $connections->notify($connection, $listen),
+            fn(Either $either, $connection) => $either->flatMap(
+                fn(Connections $connections) => $connections->notify(
+                    $connection,
+                    $listen,
+                    $this->carry,
+                ),
             ),
         );
     }
