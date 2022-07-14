@@ -22,6 +22,9 @@ use Innmind\Immutable\{
     Either,
 };
 
+/**
+ * @template C
+ */
 final class Iteration
 {
     private Protocol $protocol;
@@ -31,7 +34,12 @@ final class Iteration
     private ?ElapsedPeriod $timeout;
     private PointInTime $lastActivity;
     private State $state;
+    /** @var C */
+    private $carry;
 
+    /**
+     * @param C $carry
+     */
     private function __construct(
         Protocol $protocol,
         Clock $clock,
@@ -40,6 +48,7 @@ final class Iteration
         ?ElapsedPeriod $timeout,
         PointInTime $lastActivity,
         State $state,
+        mixed $carry,
     ) {
         $this->protocol = $protocol;
         $this->clock = $clock;
@@ -48,14 +57,21 @@ final class Iteration
         $this->timeout = $timeout;
         $this->lastActivity = $lastActivity;
         $this->state = $state;
+        $this->carry = $carry;
     }
 
+    /**
+     * @template T
+     *
+     * @param T $carry
+     */
     public static function first(
         Protocol $protocol,
         Clock $clock,
         Connections $connections,
         ElapsedPeriod $heartbeat,
         ?ElapsedPeriod $timeout,
+        mixed $carry,
     ): self {
         return new self(
             $protocol,
@@ -65,20 +81,23 @@ final class Iteration
             $timeout,
             $clock->now(),
             State::awaitingConnection,
+            $carry,
         );
     }
 
     /**
      * @param callable(Message, Continuation): Continuation $listen
      *
-     * @return Maybe<self>
+     * @return Either<C, self>
      */
-    public function next(callable $listen): Maybe
+    public function next(callable $listen): Either
     {
         return $this
             ->state
             ->watch($this->connections)
-            ->flatMap(fn($active) => $this->act($active, $listen));
+            ->either()
+            ->flatMap(fn($active) => $this->act($active, $listen))
+            ->leftMap(fn() => $this->carry);
     }
 
     /**
@@ -96,9 +115,9 @@ final class Iteration
     /**
      * @param callable(Message, Continuation): Continuation $listen
      *
-     * @return Maybe<self>
+     * @return Either<C, self>
      */
-    private function act(Active $active, callable $listen): Maybe
+    private function act(Active $active, callable $listen): Either
     {
         $connections = $this->state->acceptConnection(
             $active->server(),
@@ -126,8 +145,9 @@ final class Iteration
                         false => $this->clock->now(),
                     },
                     $this->state,
+                    $this->carry,
                 )),
-                static fn($shuttingDown) => Maybe::just($shuttingDown),
+                static fn($shuttingDown) => Either::right($shuttingDown),
             );
     }
 
@@ -182,6 +202,7 @@ final class Iteration
             $this->timeout,
             $this->clock->now(),
             State::shuttingDown,
+            $this->carry,
         );
     }
 
@@ -203,10 +224,14 @@ final class Iteration
     }
 
     /**
-     * @return Maybe<Connections>
+     * @return Either<C, Connections>
      */
-    private function monitorTermination(Connections $connections): Maybe
+    private function monitorTermination(Connections $connections): Either
     {
-        return $this->state->terminate($connections);
+        return $this
+            ->state
+            ->terminate($connections)
+            ->either()
+            ->leftMap(fn() => $this->carry);
     }
 }

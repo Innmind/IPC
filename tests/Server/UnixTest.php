@@ -60,7 +60,7 @@ class UnixTest extends TestCase
             ->method('open')
             ->willReturn(Maybe::nothing());
 
-        $e = $receive(static function($_, $continuation) {
+        $e = $receive(null, static function($_, $continuation) {
             return $continuation;
         })->match(
             static fn() => null,
@@ -85,7 +85,7 @@ class UnixTest extends TestCase
             new Timeout(1000),
         );
 
-        $this->assertNull($listen(static function($_, $continuation) {
+        $this->assertNull($listen(null, static function($_, $continuation) {
             return $continuation;
         })->match(
             static fn() => null,
@@ -148,7 +148,7 @@ class UnixTest extends TestCase
             );
 
         try {
-            $server(static function($_, $continuation) {
+            $server(null, static function($_, $continuation) {
                 return $continuation->stop();
             });
         } catch (\Exception $e) {
@@ -157,7 +157,7 @@ class UnixTest extends TestCase
 
         try {
             // check signals are not registered twice
-            $server(static function($_, $continuation) {
+            $server(null, static function($_, $continuation) {
                 return $continuation->stop();
             });
         } catch (\Exception $e) {
@@ -186,7 +186,7 @@ class UnixTest extends TestCase
             new Timeout(10000),
         );
 
-        $this->assertNull($listen(static function($_, $continuation) {
+        $this->assertNull($listen(null, static function($_, $continuation) {
             return $continuation->stop();
         })->match(
             static fn() => null,
@@ -215,7 +215,7 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($message, $continuation) {
+        $this->assertNull($listen(null, static function($message, $continuation) {
             return $continuation->close();
         })->match(
             static fn() => null,
@@ -244,7 +244,7 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($_, $continuation) {
+        $this->assertNull($listen(null, static function($_, $continuation) {
             return $continuation;
         })->match(
             static fn() => null,
@@ -276,7 +276,7 @@ class UnixTest extends TestCase
 
         $this->expectException(\Exception::class);
 
-        $listen(static function() {
+        $listen(null, static function() {
             throw new \Exception;
         });
         // only test coverage can show that show that connections are closed on
@@ -304,7 +304,7 @@ class UnixTest extends TestCase
             new Timeout(3000),
         );
 
-        $this->assertNull($listen(static function($_, $continuation) {
+        $this->assertNull($listen(null, static function($_, $continuation) {
             return $continuation;
         })->match(
             static fn() => null,
