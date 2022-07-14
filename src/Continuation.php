@@ -91,10 +91,10 @@ final class Continuation
      * @template C
      * @template D
      *
-     * @param callable(Client, Message): A $onResponse
-     * @param callable(Client): B $onClose
-     * @param callable(Client): C $onStop
-     * @param callable(Client): D $onContinue
+     * @param callable(Client, Message, T): A $onResponse
+     * @param callable(Client, T): B $onClose
+     * @param callable(Client, T): C $onStop
+     * @param callable(Client, T): D $onContinue
      *
      * @return A|B|C|D
      */
@@ -106,20 +106,20 @@ final class Continuation
     ): mixed {
         if ($this->response instanceof Message) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onResponse($this->client, $this->response);
+            return $onResponse($this->client, $this->response, $this->carry);
         }
 
         if ($this->closed) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onClose($this->client);
+            return $onClose($this->client, $this->carry);
         }
 
         if ($this->stop) {
             /** @psalm-suppress ImpureFunctionCall */
-            return $onStop($this->client);
+            return $onStop($this->client, $this->carry);
         }
 
         /** @psalm-suppress ImpureFunctionCall */
-        return $onContinue($this->client);
+        return $onContinue($this->client, $this->carry);
     }
 }

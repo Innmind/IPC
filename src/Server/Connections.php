@@ -116,20 +116,21 @@ final class Connections
         return $this
             ->connections
             ->get($connection)
+            ->either()
             ->flatMap(fn($client) => $client->notify($listen, $carry))
             ->match(
                 fn($either) => $either
-                    ->map(fn($client) => [new self(
+                    ->map(fn($tuple) => [new self(
                         $this->server,
                         $this->watch,
-                        ($this->connections)($connection, $client),
-                    ), $carry])
-                    ->leftMap(fn($client) => [new self(
+                        ($this->connections)($connection, $tuple[0]),
+                    ), $tuple[1]])
+                    ->leftMap(fn($tuple) => [new self(
                         $this->server,
                         $this->watch,
-                        ($this->connections)($connection, $client),
-                    ), $carry]),
-                fn() => Either::right([new self(
+                        ($this->connections)($connection, $tuple[0]),
+                    ), $tuple[1]]),
+                fn($carry) => Either::right([new self(
                     $this->server,
                     $this->watch->unwatch($connection),
                     $this->connections->remove($connection),

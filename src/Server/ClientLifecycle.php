@@ -69,13 +69,14 @@ final class ClientLifecycle
      * @param callable(Message, Continuation<C>): Continuation<C> $notify
      * @param C $carry
      *
-     * @return Maybe<Either<self, self>> Left side of Either means the notify asked the server to stop
+     * @return Either<C, Either<array{self, C}, array{self, C}>> Left side of Either means the notify asked the server to stop
      */
-    public function notify(callable $notify, mixed $carry): Maybe
+    public function notify(callable $notify, mixed $carry): Either
     {
         return $this
             ->client
             ->read()
+            ->either()
             ->flatMap(fn($tuple) => $this->state->actUpon(
                 $tuple[0],
                 $tuple[1],
@@ -144,16 +145,20 @@ final class ClientLifecycle
     }
 
     /**
-     * @param array{Client, State} $tuple
+     * @template C
+     *
+     * @param array{Client, State, C} $tuple
+     *
+     * @return array{self, C}
      */
-    private function update(array $tuple): self
+    private function update(array $tuple): array
     {
-        return new self(
+        return [new self(
             $this->clock,
             $this->heartbeat,
             $tuple[0],
             $this->clock->now(),
             $tuple[1],
-        );
+        ), $tuple[2]];
     }
 }

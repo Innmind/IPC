@@ -31,19 +31,20 @@ enum State
      * @param callable(Message, Continuation<C>): Continuation<C> $notify
      * @param C $carry
      *
-     * @return Maybe<Either<array{Client, self}, array{Client, self}>> Left side of Either means stop th server
+     * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>> Inner left side of Either means stop the server
      */
     public function actUpon(
         Client $client,
         Message $message,
         callable $notify,
         mixed $carry,
-    ): Maybe {
-        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+    ): Either {
+        /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
         return match ($this) {
-            self::pendingStartOk => Maybe::just(Either::right([
+            self::pendingStartOk => Either::right(Either::right([
                 $client,
                 $this->ackStartOk($message),
+                $carry,
             ])),
             self::awaitingMessage => $this->handleMessage(
                 $client,
@@ -51,7 +52,7 @@ enum State
                 $notify,
                 $carry,
             ),
-            self::pendingCloseOk => $this->ackCloseOk($client, $message),
+            self::pendingCloseOk => $this->ackCloseOk($client, $message, $carry),
         };
     }
 
@@ -70,20 +71,22 @@ enum State
      * @param callable(Message, Continuation<C>): Continuation<C> $notify
      * @param C $carry
      *
-     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
+     * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>>
      */
     private function handleMessage(
         Client $client,
         Message $message,
         callable $notify,
         mixed $carry,
-    ): Maybe {
+    ): Either {
         if ($message->equals(new ConnectionClose)) {
-            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+            /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
             return $client
                 ->send(new ConnectionCloseOk)
                 ->flatMap(static fn($client) => $client->close())
-                ->filter(static fn() => false); // always return nothing
+                ->either()
+                ->leftMap(static fn() => $carry)
+                ->flatMap(static fn() => Either::left($carry));
         }
 
         if (
@@ -95,12 +98,15 @@ enum State
             $message->equals(new Heartbeat)
         ) {
             // never notify with a protocol message
-            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
-            return Maybe::just(Either::right([$client, $this]));
+            /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
+            return Either::right(Either::right([$client, $this, $carry]));
         }
 
+        /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
         return $client
             ->send(new MessageReceived)
+            ->either()
+            ->leftMap(static fn() => $carry)
             ->map(static fn($client) => $notify(
                 $message,
                 Continuation::start($client, $carry),
@@ -109,19 +115,28 @@ enum State
     }
 
     /**
-     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
+     * @template C
+     *
+     * @param C $carry
+     *
+     * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>>
      */
-    private function ackCloseOk(Client $client, Message $message): Maybe
-    {
+    private function ackCloseOk(
+        Client $client,
+        Message $message,
+        mixed $carry,
+    ): Either {
         if ($message->equals(new ConnectionCloseOk)) {
-            /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+            /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
             return $client
                 ->close()
-                ->filter(static fn() => false); // always return nothing
+                ->either()
+                ->leftMap(static fn() => $carry)
+                ->flatMap(static fn() => Either::left($carry));
         }
 
-        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
-        return Maybe::just(Either::right([$client, $this]));
+        /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
+        return Either::right(Either::right([$client, $this, $carry]));
     }
 
     /**
@@ -129,20 +144,24 @@ enum State
      *
      * @param Continuation<C> $continuation
      *
-     * @return Maybe<Either<array{Client, self}, array{Client, self}>>
+     * @return Either<C, Either<array{Client, self, C}, array{Client, self, C}>>
      */
-    private function determineNextState(Continuation $continuation): Maybe
+    private function determineNextState(Continuation $continuation): Either
     {
-        /** @var Maybe<Either<array{Client, self}, array{Client, self}>> */
+        /** @var Either<C, Either<array{Client, self, C}, array{Client, self, C}>> */
         return $continuation->match(
-            fn($client, $message) => $client
+            fn($client, $message, $carry) => $client
                 ->send($message)
-                ->map(fn($client) => Either::right([$client, $this])),
-            static fn($client) => $client
+                ->either()
+                ->map(fn($client) => Either::right([$client, $this, $carry]))
+                ->leftMap(static fn(): mixed => $carry),
+            static fn($client, $carry) => $client
                 ->send(new ConnectionClose)
-                ->map(static fn($client) => Either::right([$client, self::pendingCloseOk])),
-            fn($client) => Maybe::just(Either::left([$client, $this])),
-            fn($client) => Maybe::just(Either::right([$client, $this])),
+                ->either()
+                ->map(static fn($client) => Either::right([$client, self::pendingCloseOk, $carry]))
+                ->leftMap(static fn(): mixed => $carry),
+            fn($client, $carry) => Either::right(Either::left([$client, $this, $carry])),
+            fn($client, $carry) => Either::right(Either::right([$client, $this, $carry])),
         );
     }
 }
