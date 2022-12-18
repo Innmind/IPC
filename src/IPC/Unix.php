@@ -64,7 +64,10 @@ final class Unix implements IPC
 
     public function processes(): Set
     {
-        /** @var Set<Process\Name> */
+        /**
+         * @psalm-suppress DeprecatedMethod while both major versions are supported
+         * @var Set<Process\Name>
+         */
         return $this
             ->filesystem
             ->all()
