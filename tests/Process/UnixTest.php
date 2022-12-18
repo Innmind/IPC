@@ -781,7 +781,8 @@ class UnixTest extends TestCase
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/eternal-server.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         \sleep(1);

@@ -21,12 +21,14 @@ class FunctionalTest extends TestCase
         $processes->execute(
             Command::background('php')
                 ->withArgument('fixtures/server.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
         $process = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
         $process->wait();
         $output = $process->output()->toString();
@@ -46,7 +48,8 @@ class FunctionalTest extends TestCase
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/eternal-server.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
         $os->process()->halt(new Second(1));
         $processes->kill(
