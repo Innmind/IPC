@@ -173,7 +173,8 @@ class UnixTest extends TestCase
         $server = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(
@@ -202,7 +203,8 @@ class UnixTest extends TestCase
         $client = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(
@@ -231,7 +233,8 @@ class UnixTest extends TestCase
         $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(
@@ -261,7 +264,8 @@ class UnixTest extends TestCase
         $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(
@@ -291,7 +295,8 @@ class UnixTest extends TestCase
         $client = $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/self-closing-client.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(
@@ -322,7 +327,8 @@ class UnixTest extends TestCase
         $processes->execute(
             Command::foreground('php')
                 ->withArgument('fixtures/long-client-multi-message.php')
-                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString()),
+                ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
         $listen = new Unix(

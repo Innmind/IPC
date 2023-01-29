@@ -13,7 +13,10 @@ use Innmind\OperatingSystem\{
     Sockets,
     CurrentProcess\Signals,
 };
-use Innmind\Signals\Signal;
+use Innmind\Signals\{
+    Signal,
+    Info,
+};
 use Innmind\Socket\Address\Unix as Address;
 use Innmind\TimeContinuum\{
     Clock,
@@ -114,7 +117,7 @@ final class Unix implements Server
     }
 
     /**
-     * @param callable(): void $shutdown
+     * @param callable(Signal, Info): void $shutdown
      */
     private function registerSignals(callable $shutdown): void
     {
@@ -127,7 +130,7 @@ final class Unix implements Server
     }
 
     /**
-     * @param callable(): void $shutdown
+     * @param callable(Signal, Info): void $shutdown
      */
     private function unregisterSignals(callable $shutdown): void
     {
