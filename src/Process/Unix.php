@@ -21,7 +21,7 @@ use Innmind\Socket\{
 };
 use Innmind\Stream\{
     Watch,
-    Selectable,
+    Readable,
 };
 use Innmind\TimeContinuum\{
     Clock,
@@ -108,7 +108,7 @@ final class Unix implements Process
                     ->filter(static fn() => false); // never return anything
             }
 
-            /** @var Set<Selectable> */
+            /** @var Set<Readable> */
             $toRead = ($this->watch)()->match(
                 static fn($ready) => $ready->toRead(),
                 static fn() => Set::of(),

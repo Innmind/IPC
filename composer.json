@@ -20,8 +20,8 @@
         "innmind/operating-system": "~3.1",
         "innmind/url": "~4.0",
         "innmind/media-type": "~2.0",
-        "innmind/socket": "~5.0",
-        "innmind/server-control": "~4.1"
+        "innmind/socket": "~6.0",
+        "innmind/server-control": "~5.0"
     },
     "autoload": {
         "psr-4": {
