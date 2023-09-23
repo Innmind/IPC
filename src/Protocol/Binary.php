@@ -19,14 +19,14 @@ final class Binary implements Protocol
 {
     public function encode(Message $message): Str
     {
-        $content = $message->content()->toEncoding('ASCII');
-        $mediaType = Str::of($message->mediaType()->toString())->toEncoding('ASCII');
+        $content = $message->content()->toEncoding(Str\Encoding::ascii);
+        $mediaType = Str::of($message->mediaType()->toString())->toEncoding(Str\Encoding::ascii);
 
         if ($content->length() > 4_294_967_295) { // unsigned long integer
             throw new MessageContentTooLong((string) $content->length());
         }
 
-        return Str::of('%s%s%s%s%s', 'ASCII')->sprintf(
+        return Str::of('%s%s%s%s%s', Str\Encoding::ascii)->sprintf(
             \pack('n', $mediaType->length()),
             $mediaType->toString(),
             \pack('N', $content->length()),
@@ -75,7 +75,7 @@ final class Binary implements Protocol
                     ->map(static fn() => $parsed),
             )
             // verify the read content is of the length specified
-            ->filter(static fn($parsed) => $parsed[1] === $parsed[2]->toEncoding('ASCII')->length())
+            ->filter(static fn($parsed) => $parsed[1] === $parsed[2]->toEncoding(Str\Encoding::ascii)->length())
             ->flatMap(
                 static fn($parsed) => MediaType::maybe($parsed[0])->map(
                     static fn($mediaType) => new Message\Generic(
