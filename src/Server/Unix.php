@@ -101,8 +101,8 @@ final class Unix implements Server
                  * @var Unix\Iteration<C>|C
                  */
                 $iteration = $iteration->next($listen)->match(
-                    static fn($iteration) => $iteration,
-                    static fn($carry): mixed => $carry,
+                    static fn(mixed $iteration): mixed => $iteration,
+                    static fn(mixed $carry): mixed => $carry,
                 );
             } catch (\Throwable $e) {
                 $this->unregisterSignals($shutdown);
