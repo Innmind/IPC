@@ -124,28 +124,27 @@ class UnixTest extends TestCase
             ->method('__invoke')
             ->will($this->throwException($expected = new \Exception));
 
-        $callback = $this->callback(static function($listen): bool {
-            $listen();
-
-            return true;
-        });
         $signals
-            ->expects($this->exactly(12))
+            ->expects($matcher = $this->exactly(12))
             ->method('listen')
-            ->withConsecutive(
-                [Signal::hangup, $callback],
-                [Signal::interrupt, $callback],
-                [Signal::abort, $callback],
-                [Signal::terminate, $callback],
-                [Signal::terminalStop, $callback],
-                [Signal::alarm, $callback],
-                [Signal::hangup, $callback],
-                [Signal::interrupt, $callback],
-                [Signal::abort, $callback],
-                [Signal::terminate, $callback],
-                [Signal::terminalStop, $callback],
-                [Signal::alarm, $callback],
-            );
+            ->willReturnCallback(function($signal, $listen) use ($matcher) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertSame(Signal::hangup, $signal),
+                    2 => $this->assertSame(Signal::interrupt, $signal),
+                    3 => $this->assertSame(Signal::abort, $signal),
+                    4 => $this->assertSame(Signal::terminate, $signal),
+                    5 => $this->assertSame(Signal::terminalStop, $signal),
+                    6 => $this->assertSame(Signal::alarm, $signal),
+                    7 => $this->assertSame(Signal::hangup, $signal),
+                    8 => $this->assertSame(Signal::interrupt, $signal),
+                    9 => $this->assertSame(Signal::abort, $signal),
+                    10 => $this->assertSame(Signal::terminate, $signal),
+                    11 => $this->assertSame(Signal::terminalStop, $signal),
+                    12 => $this->assertSame(Signal::alarm, $signal),
+                };
+
+                $listen();
+            });
 
         try {
             $server(null, static function($_, $continuation) {
