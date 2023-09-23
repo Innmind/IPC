@@ -177,20 +177,30 @@ class UnixTest extends TestCase
                 Maybe::just(new MessageReceived),
             ));
         $protocol
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [$message])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('message-to-send'),
-            ));
+            ->willReturnCallback(function($in) use ($matcher, $message) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStartOk, $in),
+                    2 => $this->assertEquals($message, $in),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Str::of('start-ok'),
+                    2 => Str::of('message-to-send'),
+                };
+            });
         $socket
+            ->expects($matcher = $this->exactly(2))
             ->method('write')
-            ->withConsecutive(
-                [Str::of('start-ok')],
-                [Str::of('message-to-send')],
-            )
-            ->willReturn(Either::right($socket));
+            ->willReturnCallback(function($message) use ($matcher, $socket) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(Str::of('start-ok'), $message),
+                    2 => $this->assertEquals(Str::of('message-to-send'), $message),
+                };
+
+                return Either::right($socket);
+            });
 
         $process = Unix::of(
             $sockets,
@@ -239,23 +249,33 @@ class UnixTest extends TestCase
             ->with($socket)
             ->willReturn(Maybe::just(new ConnectionStart));
         $protocol
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [$message])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('message content'),
-            ));
+            ->willReturnCallback(function($in) use ($matcher, $message) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStartOk, $in),
+                    2 => $this->assertEquals($message, $in),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Str::of('start-ok'),
+                    2 => Str::of('message content'),
+                };
+            });
         $socket
+            ->expects($matcher = $this->exactly(2))
             ->method('write')
-            ->withConsecutive(
-                [Str::of('start-ok')],
-                [Str::of('message content')],
-            )
-            ->will($this->onConsecutiveCalls(
-                Either::right($socket),
-                Either::left(new FailedToWriteToStream),
-            ));
+            ->willReturnCallback(function($message) use ($matcher, $socket) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(Str::of('start-ok'), $message),
+                    2 => $this->assertEquals(Str::of('message content'), $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Either::right($socket),
+                    2 => Either::left(new FailedToWriteToStream),
+                };
+            });
 
         $process = Unix::of(
             $sockets,
@@ -548,23 +568,30 @@ class UnixTest extends TestCase
                 Maybe::just(new ConnectionClose),
             ));
         $protocol
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('encode')
-            ->withConsecutive(
-                [new ConnectionStartOk],
-                [new ConnectionCloseOk],
-            )
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('close-ok'),
-            ));
+            ->willReturnCallback(function($message) use ($matcher) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStartOk, $message),
+                    2 => $this->assertEquals(new ConnectionCloseOk, $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Str::of('start-ok'),
+                    2 => Str::of('close-ok'),
+                };
+            });
         $socket
+            ->expects($matcher = $this->exactly(2))
             ->method('write')
-            ->withConsecutive(
-                [Str::of('start-ok')],
-                [Str::of('close-ok')],
-            )
-            ->willReturn(Either::right($socket));
+            ->willReturnCallback(function($message) use ($matcher, $socket) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(Str::of('start-ok'), $message),
+                    2 => $this->assertEquals(Str::of('close-ok'), $message),
+                };
+
+                return Either::right($socket);
+            });
         $socket
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
@@ -675,17 +702,30 @@ class UnixTest extends TestCase
                 Maybe::just(new ConnectionCloseOk),
             ));
         $protocol
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('close'),
-            ));
+            ->willReturnCallback(function($message) use ($matcher) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStartOk, $message),
+                    2 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Str::of('start-ok'),
+                    2 => Str::of('close'),
+                };
+            });
         $socket
+            ->expects($matcher = $this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
-            ->willReturn(Either::right($socket));
+            ->willReturnCallback(function($message) use ($matcher, $socket) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(Str::of('start-ok'), $message),
+                    2 => $this->assertEquals(Str::of('close'), $message),
+                };
+
+                return Either::right($socket);
+            });
         $socket
             ->method('close')
             ->willReturn(Either::right(new SideEffect));
@@ -739,17 +779,30 @@ class UnixTest extends TestCase
                 Maybe::just($this->createMock(Message::class)),
             ));
         $protocol
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('encode')
-            ->withConsecutive([new ConnectionStartOk], [new ConnectionClose])
-            ->will($this->onConsecutiveCalls(
-                Str::of('start-ok'),
-                Str::of('close'),
-            ));
+            ->willReturnCallback(function($message) use ($matcher) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStartOk, $message),
+                    2 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Str::of('start-ok'),
+                    2 => Str::of('close'),
+                };
+            });
         $socket
+            ->expects($matcher = $this->exactly(2))
             ->method('write')
-            ->withConsecutive([Str::of('start-ok')], [Str::of('close')])
-            ->willReturn(Either::right($socket));
+            ->willReturnCallback(function($message) use ($matcher, $socket) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(Str::of('start-ok'), $message),
+                    2 => $this->assertEquals(Str::of('close'), $message),
+                };
+
+                return Either::right($socket);
+            });
         $socket
             ->method('close')
             ->willReturn(Either::right(new SideEffect));

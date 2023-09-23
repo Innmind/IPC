@@ -89,16 +89,19 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new Heartbeat],
-            )
-            ->will($this->onConsecutiveCalls(
-                Maybe::just($client),
-                Maybe::nothing(),
-            ));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new Heartbeat, $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Maybe::just($client),
+                    2 => Maybe::nothing(),
+                };
+            });
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $clock
@@ -132,16 +135,16 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new Heartbeat],
-            )
-            ->will($this->onConsecutiveCalls(
-                Maybe::just($client),
-                Maybe::just($client),
-            ));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new Heartbeat, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
         $clock
@@ -274,13 +277,16 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new ConnectionCloseOk],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new ConnectionCloseOk, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(2))
             ->method('read')
@@ -324,14 +330,17 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(3))
+            ->expects($matcher = $this->exactly(3))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-                [new MessageReceived],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new MessageReceived, $message),
+                    3 => $this->assertEquals(new MessageReceived, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(3))
             ->method('read')
@@ -387,14 +396,17 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(3))
+            ->expects($matcher = $this->exactly(3))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-                [new ConnectionClose],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new MessageReceived, $message),
+                    3 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(3))
             ->method('read')
@@ -449,14 +461,17 @@ class ClientLifecycleTest extends TestCase
             ->method('close')
             ->willReturn(Maybe::just(new SideEffect));
         $client
-            ->expects($this->exactly(3))
+            ->expects($matcher = $this->exactly(3))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-                [new ConnectionClose],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new MessageReceived, $message),
+                    3 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(3))
             ->method('read')
@@ -504,14 +519,17 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(3))
+            ->expects($matcher = $this->exactly(3))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-                [new ConnectionClose],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new MessageReceived, $message),
+                    3 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(3))
             ->method('read')
@@ -566,13 +584,16 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new MessageReceived],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new MessageReceived, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->exactly(3))
             ->method('read')
@@ -627,13 +648,16 @@ class ClientLifecycleTest extends TestCase
             ->method('close')
             ->willReturn(Maybe::just(new SideEffect));
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new ConnectionClose],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->once())
             ->method('read')
@@ -670,13 +694,16 @@ class ClientLifecycleTest extends TestCase
             ->method('close')
             ->willReturn(Maybe::nothing());
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new ConnectionClose],
-            )
-            ->willReturn(Maybe::just($client));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return Maybe::just($client);
+            });
         $client
             ->expects($this->once())
             ->method('read')
@@ -709,16 +736,19 @@ class ClientLifecycleTest extends TestCase
     {
         $client = $this->createMock(Client::class);
         $client
-            ->expects($this->exactly(2))
+            ->expects($matcher = $this->exactly(2))
             ->method('send')
-            ->withConsecutive(
-                [new ConnectionStart],
-                [new ConnectionClose],
-            )
-            ->will($this->onConsecutiveCalls(
-                $this->returnValue(Maybe::just($client)),
-                $this->returnValue(Maybe::nothing()),
-            ));
+            ->willReturnCallback(function($message) use ($matcher, $client) {
+                match ($matcher->numberOfInvocations()) {
+                    1 => $this->assertEquals(new ConnectionStart, $message),
+                    2 => $this->assertEquals(new ConnectionClose, $message),
+                };
+
+                return match ($matcher->numberOfInvocations()) {
+                    1 => Maybe::just($client),
+                    2 => Maybe::nothing(),
+                };
+            });
         $clock = $this->createMock(Clock::class);
         $heartbeat = new Timeout(1000);
 
@@ -733,7 +763,7 @@ class ClientLifecycleTest extends TestCase
         ));
     }
 
-    public function protocolMessages(): array
+    public static function protocolMessages(): array
     {
         return [
             [new ConnectionStart],
