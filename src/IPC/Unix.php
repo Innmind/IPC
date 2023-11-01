@@ -28,6 +28,7 @@ use Innmind\Url\Path;
 use Innmind\Immutable\{
     Set,
     Maybe,
+    Predicate\Instance,
 };
 
 final class Unix implements IPC
@@ -64,18 +65,16 @@ final class Unix implements IPC
 
     public function processes(): Set
     {
-        /**
-         * @psalm-suppress DeprecatedMethod while both major versions are supported
-         * @var Set<Process\Name>
-         */
         return $this
             ->filesystem
+            ->root()
             ->all()
             ->map(static fn($file) => Process\Name::maybe($file->name()->toString())->match(
                 static fn($name) => $name,
                 static fn() => null,
             ))
-            ->filter(static fn($name) => $name instanceof Process\Name);
+            ->keep(Instance::of(Process\Name::class))
+            ->toSet();
     }
 
     public function get(Process\Name $name): Maybe
@@ -97,7 +96,7 @@ final class Unix implements IPC
 
     public function exist(Process\Name $name): bool
     {
-        return $this->filesystem->contains(new FileName("{$name->toString()}.sock"));
+        return $this->filesystem->contains(FileName::of("{$name->toString()}.sock"));
     }
 
     public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe
