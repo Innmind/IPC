@@ -79,28 +79,15 @@ class UnixTest extends TestCase
     {
         $ipc = new Unix(
             $sockets = $this->createMock(Sockets::class),
-            $filesystem = $this->createMock(Adapter::class),
+            $filesystem = Adapter\InMemory::emulateFilesystem(),
             $this->createMock(Clock::class),
             $this->createMock(CurrentProcess::class),
             $protocol = $this->createMock(Protocol::class),
             Path::of('/tmp/'),
             new Timeout(1000),
         );
-        $filesystem
-            ->expects($this->once())
-            ->method('all')
-            ->willReturn(
-                Set::of(
-                    $foo = $this->createMock(File::class),
-                    $bar = $this->createMock(File::class),
-                ),
-            );
-        $foo
-            ->method('name')
-            ->willReturn(new FileName('foo'));
-        $bar
-            ->method('name')
-            ->willReturn(new FileName('bar'));
+        $filesystem->add(File::named('foo', File\Content::none()));
+        $filesystem->add(File::named('bar', File\Content::none()));
 
         $processes = $ipc->processes();
 
@@ -129,7 +116,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->once())
             ->method('contains')
-            ->with(new FileName('foo.sock'))
+            ->with(FileName::of('foo.sock'))
             ->willReturn(false);
 
         $this->assertNull($ipc->get(Name::of('foo'))->match(
@@ -152,7 +139,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->once())
             ->method('contains')
-            ->with(new FileName('foo.sock'))
+            ->with(FileName::of('foo.sock'))
             ->willReturn(true);
         $sockets
             ->expects($this->once())
@@ -204,7 +191,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->exactly(2))
             ->method('contains')
-            ->with(new FileName('foo.sock'))
+            ->with(FileName::of('foo.sock'))
             ->will($this->onConsecutiveCalls(true, false));
 
         $this->assertTrue($ipc->exist(Name::of('foo')));
@@ -245,7 +232,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->exactly(4))
             ->method('contains')
-            ->with(new FileName('foo.sock'))
+            ->with(FileName::of('foo.sock'))
             ->will($this->onConsecutiveCalls(false, false, true, true));
         $process
             ->expects($this->exactly(2))
@@ -301,7 +288,7 @@ class UnixTest extends TestCase
         $filesystem
             ->expects($this->any())
             ->method('contains')
-            ->with(new FileName('foo.sock'))
+            ->with(FileName::of('foo.sock'))
             ->willReturn(false);
         $process
             ->expects($this->once())
