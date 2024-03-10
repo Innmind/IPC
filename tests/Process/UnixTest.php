@@ -24,6 +24,7 @@ use Innmind\Server\Control\Server\{
     Command,
     Signal,
 };
+use Innmind\IO\Sockets\Client as IOClient;
 use Innmind\Socket\{
     Address\Unix as Address,
     Client,
@@ -57,7 +58,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -109,7 +115,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -157,7 +168,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -232,7 +248,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -305,7 +326,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -368,7 +394,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -433,7 +464,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -490,7 +526,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -548,7 +589,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -625,7 +671,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -682,7 +733,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -759,7 +815,12 @@ class UnixTest extends TestCase
             ->expects($this->once())
             ->method('connectTo')
             ->with($address)
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')

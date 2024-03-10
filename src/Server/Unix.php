@@ -67,7 +67,7 @@ final class Unix implements Server
             ->open($this->address)
             ->map(fn($server) => Connections::start(
                 $this->sockets->watch($this->heartbeat),
-                $server,
+                $server->unwrap(),
             ))
             ->map(fn($connections) => Unix\Iteration::first(
                 $this->protocol,
