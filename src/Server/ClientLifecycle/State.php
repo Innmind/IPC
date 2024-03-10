@@ -14,10 +14,7 @@ use Innmind\IPC\{
     Message\MessageReceived,
     Message\Heartbeat,
 };
-use Innmind\Immutable\{
-    Maybe,
-    Either,
-};
+use Innmind\Immutable\Either;
 
 enum State
 {
