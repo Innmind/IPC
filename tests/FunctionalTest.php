@@ -39,7 +39,7 @@ class FunctionalTest extends TestCase
     public function testKillServer()
     {
         if (\getenv('CI')) {
-            return;
+            $this->markTestSkipped();
         }
 
         $os = Factory::build();
