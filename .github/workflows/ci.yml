@@ -25,7 +25,7 @@ jobs:
         with:
           dependency-versions: ${{ matrix.dependencies }}
       - name: PHPUnit
-        run: vendor/bin/phpunit --coverage-clover=coverage.clover
+        run: vendor/bin/phpunit --coverage-clover=coverage.clover --stop-on-error
         env:
           CI: 'github'
       - uses: codecov/codecov-action@v1
