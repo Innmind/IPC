@@ -899,7 +899,15 @@ class UnixTest extends TestCase
                 ->withEnvironment('PATH', $_SERVER['PATH']),
         );
 
-        \sleep(1);
+        $started = $server
+            ->output()
+            ->chunks()
+            ->find(static fn($pair) => $pair[0]->startsWith('Server ready!'));
+
+        $this->assertTrue($started->match(
+            static fn() => true,
+            static fn() => false,
+        ));
 
         $process = Unix::of(
             $os->sockets(),
@@ -912,6 +920,8 @@ class UnixTest extends TestCase
             static fn($process) => $process,
             static fn() => null,
         );
+
+        $this->assertNotNull($process);
 
         try {
             $this->assertNull($process->wait(new Timeout(100))->match(
