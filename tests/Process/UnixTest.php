@@ -909,6 +909,8 @@ class UnixTest extends TestCase
             static fn() => false,
         ));
 
+        \sleep(1);
+
         $process = Unix::of(
             $os->sockets(),
             new Protocol\Binary,
