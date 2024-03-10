@@ -71,12 +71,15 @@ final class Unix implements Process
         Name $name,
         ElapsedPeriod $watchTimeout,
     ): Maybe {
-        /** @var Maybe<Process> */
+        /**
+         * @psalm-suppress PossiblyInvalidArgument
+         * @var Maybe<Process>
+         */
         return $sockets
             ->connectTo($address)
             ->map(static fn($socket) => new self(
-                $socket,
-                $sockets->watch($watchTimeout)->forRead($socket),
+                $socket->unwrap(),
+                $sockets->watch($watchTimeout)->forRead($socket->unwrap()),
                 $protocol,
                 $clock,
                 $name,

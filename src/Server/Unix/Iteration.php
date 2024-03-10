@@ -17,7 +17,6 @@ use Innmind\TimeContinuum\{
 };
 use Innmind\Socket\Server\Connection;
 use Innmind\Immutable\{
-    Maybe,
     Set,
     Either,
 };

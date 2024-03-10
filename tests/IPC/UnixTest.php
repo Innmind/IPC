@@ -31,6 +31,7 @@ use Innmind\TimeContinuum\{
     Earth\ElapsedPeriod as Timeout,
     PointInTime,
 };
+use Innmind\IO\Sockets\Client as IOClient;
 use Innmind\Socket\Client;
 use Innmind\Stream\Watch\Select;
 use Innmind\Immutable\{
@@ -144,7 +145,12 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->once())
             ->method('connectTo')
-            ->willReturn(Maybe::just($client = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($client = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')
@@ -241,7 +247,12 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->once())
             ->method('connectTo')
-            ->willReturn(Maybe::just($socket = $this->createMock(Client::class)));
+            ->willReturn(Maybe::just($socket = $this->createMock(Client::class))->map(
+                static fn($client) => IOClient::of(
+                    static fn() => null,
+                    $client,
+                ),
+            ));
         $sockets
             ->expects($this->once())
             ->method('watch')

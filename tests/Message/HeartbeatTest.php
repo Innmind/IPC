@@ -30,7 +30,7 @@ class HeartbeatTest extends TestCase
             MediaType::of('text/plain'),
             Str::of('innmind/ipc:heartbeat'),
         );
-        $different = new Message\Generic(
+        $different = new Generic(
             MediaType::of('text/plain'),
             Str::of('foo'),
         );

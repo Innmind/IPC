@@ -46,7 +46,7 @@ class GenericTest extends TestCase
             MediaType::of('text/plain'),
             Str::of('watev'),
         );
-        $different = new Message\Generic(
+        $different = new Generic(
             MediaType::of('text/plain'),
             Str::of('foo'),
         );

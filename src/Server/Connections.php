@@ -117,7 +117,7 @@ final class Connections
             ->connections
             ->get($connection)
             ->either()
-            ->flatMap(fn($client) => $client->notify($listen, $carry))
+            ->flatMap(static fn($client) => $client->notify($listen, $carry))
             ->match(
                 fn($either) => $either
                     ->map(fn($tuple) => [new self(

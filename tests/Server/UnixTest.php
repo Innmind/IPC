@@ -20,6 +20,7 @@ use Innmind\TimeContinuum\{
     ElapsedPeriod,
     Earth\ElapsedPeriod as Timeout,
 };
+use Innmind\IO\Sockets\Server as IOServer;
 use Innmind\Socket\{
     Address\Unix as Address,
     Server as ServerSocket,
@@ -109,7 +110,12 @@ class UnixTest extends TestCase
         $sockets
             ->expects($this->any())
             ->method('open')
-            ->willReturn(ServerSocket\Unix::recoverable($address));
+            ->willReturn(ServerSocket\Unix::recoverable($address)->map(
+                static fn($server) => IOServer::of(
+                    static fn() => null,
+                    $server,
+                ),
+            ));
         $sockets
             ->expects($this->any())
             ->method('watch')
