@@ -63,6 +63,7 @@ final class Unix implements IPC
         $this->heartbeat = $heartbeat;
     }
 
+    #[\Override]
     public function processes(): Set
     {
         return $this
@@ -77,6 +78,7 @@ final class Unix implements IPC
             ->toSet();
     }
 
+    #[\Override]
     public function get(Process\Name $name): Maybe
     {
         if (!$this->exist($name)) {
@@ -94,11 +96,13 @@ final class Unix implements IPC
         );
     }
 
+    #[\Override]
     public function exist(Process\Name $name): bool
     {
         return $this->filesystem->contains(FileName::of("{$name->toString()}.sock"));
     }
 
+    #[\Override]
     public function wait(Process\Name $name, ?ElapsedPeriod $timeout = null): Maybe
     {
         $start = $this->clock->now();
@@ -118,6 +122,7 @@ final class Unix implements IPC
         return $this->get($name);
     }
 
+    #[\Override]
     public function listen(Process\Name $self, ?ElapsedPeriod $timeout = null): Server
     {
         return new Server\Unix(

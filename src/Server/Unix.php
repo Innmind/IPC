@@ -60,6 +60,7 @@ final class Unix implements Server
      *
      * @return Either<UnableToStart, C>
      */
+    #[\Override]
     public function __invoke(mixed $carry, callable $listen): Either
     {
         $iteration = $this

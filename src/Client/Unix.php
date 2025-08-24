@@ -22,6 +22,7 @@ final class Unix implements Client
         $this->protocol = $protocol;
     }
 
+    #[\Override]
     public function send(Message $message): Maybe
     {
         if ($this->connection->closed()) {
@@ -37,6 +38,7 @@ final class Unix implements Client
             ->map(fn() => $this);
     }
 
+    #[\Override]
     public function read(): Maybe
     {
         /** @var Maybe<array{Client, Message}> */
@@ -46,6 +48,7 @@ final class Unix implements Client
             ->map(fn($message) => [$this, $message]);
     }
 
+    #[\Override]
     public function close(): Maybe
     {
         return $this->connection->close()->maybe();

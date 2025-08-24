@@ -21,16 +21,19 @@ final class ConnectionCloseOk implements Message
         $this->content = Str::of('innmind/ipc:connection.close-ok');
     }
 
+    #[\Override]
     public function mediaType(): MediaType
     {
         return $this->mediaType;
     }
 
+    #[\Override]
     public function content(): Str
     {
         return $this->content;
     }
 
+    #[\Override]
     public function equals(Message $message): bool
     {
         return $this->mediaType->toString() === $message->mediaType()->toString() &&
