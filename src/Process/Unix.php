@@ -101,7 +101,7 @@ final class Unix implements Process
         );
     }
 
-    public function wait(ElapsedPeriod $timeout = null): Maybe
+    public function wait(?ElapsedPeriod $timeout = null): Maybe
     {
         do {
             if ($this->closed()) {
@@ -209,7 +209,7 @@ final class Unix implements Process
         return $this->socket->close()->maybe();
     }
 
-    private function timedout(ElapsedPeriod $timeout = null): bool
+    private function timedout(?ElapsedPeriod $timeout = null): bool
     {
         if ($timeout === null) {
             return false;
