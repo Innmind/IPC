@@ -87,11 +87,13 @@ final class Unix implements Process
             ->flatMap(static fn($self) => $self->open());
     }
 
+    #[\Override]
     public function name(): Name
     {
         return $this->name;
     }
 
+    #[\Override]
     public function send(Sequence $messages): Maybe
     {
         /** @var Maybe<Process> */
@@ -101,6 +103,7 @@ final class Unix implements Process
         );
     }
 
+    #[\Override]
     public function wait(?ElapsedPeriod $timeout = null): Maybe
     {
         do {
@@ -160,6 +163,7 @@ final class Unix implements Process
             });
     }
 
+    #[\Override]
     public function close(): Maybe
     {
         if ($this->closed()) {
@@ -182,6 +186,7 @@ final class Unix implements Process
             );
     }
 
+    #[\Override]
     public function closed(): bool
     {
         return $this->closed || $this->socket->closed();

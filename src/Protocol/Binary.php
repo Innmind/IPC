@@ -17,6 +17,7 @@ use Innmind\Immutable\{
 
 final class Binary implements Protocol
 {
+    #[\Override]
     public function encode(Message $message): Str
     {
         $content = $message->content()->toEncoding(Str\Encoding::ascii);
@@ -35,6 +36,7 @@ final class Binary implements Protocol
         );
     }
 
+    #[\Override]
     public function decode(Readable $stream): Maybe
     {
         /** @var Maybe<Message> */
@@ -42,7 +44,10 @@ final class Binary implements Protocol
             ->read(2)
             ->filter(static fn($length) => !$length->empty())
             ->map(static function($length): int {
-                /** @var positive-int $mediaTypeLength */
+                /**
+                 * @psalm-suppress PossiblyInvalidArrayAccess Todo apply a predicate
+                 * @var positive-int $mediaTypeLength
+                 */
                 [, $mediaTypeLength] = \unpack('n', $length->toString());
 
                 return $mediaTypeLength;
@@ -53,7 +58,10 @@ final class Binary implements Protocol
                 return $stream
                     ->read(4)
                     ->map(static function($length): int {
-                        /** @var positive-int $contentLength */
+                        /**
+                         * @psalm-suppress PossiblyInvalidArrayAccess Todo apply a predicate
+                         * @var positive-int $contentLength
+                         */
                         [, $contentLength] = \unpack('N', $length->toString());
 
                         return $contentLength;
@@ -67,6 +75,7 @@ final class Binary implements Protocol
                 fn($parsed) => $stream
                     ->read(1)
                     ->map(static function($end): mixed {
+                        /** @psalm-suppress PossiblyInvalidArrayAccess Todo apply a predicate */
                         [, $end] = \unpack('C', $end->toString());
 
                         return $end;
