@@ -25,6 +25,6 @@ interface IPC
     /**
      * @return Maybe<Process>
      */
-    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe;
-    public function listen(Process\Name $self, ElapsedPeriod $timeout = null): Server;
+    public function wait(Process\Name $name, ?ElapsedPeriod $timeout = null): Maybe;
+    public function listen(Process\Name $self, ?ElapsedPeriod $timeout = null): Server;
 }

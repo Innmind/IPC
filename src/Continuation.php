@@ -23,7 +23,7 @@ final class Continuation
         Client $client,
         mixed $carry,
         bool $closed = false,
-        Message $response = null,
+        ?Message $response = null,
         bool $stop = false,
     ) {
         $this->client = $client;

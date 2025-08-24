@@ -11,8 +11,8 @@ final class Factory
 {
     public static function build(
         OperatingSystem $os,
-        Path $sockets = null,
-        ElapsedPeriod $heartbeat = null,
+        ?Path $sockets = null,
+        ?ElapsedPeriod $heartbeat = null,
     ): IPC {
         $sockets ??= $os->status()->tmp()->resolve(Path::of('innmind/ipc/'));
         $heartbeat ??= new ElapsedPeriod(1000); // default to 1 second

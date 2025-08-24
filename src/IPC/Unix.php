@@ -99,7 +99,7 @@ final class Unix implements IPC
         return $this->filesystem->contains(FileName::of("{$name->toString()}.sock"));
     }
 
-    public function wait(Process\Name $name, ElapsedPeriod $timeout = null): Maybe
+    public function wait(Process\Name $name, ?ElapsedPeriod $timeout = null): Maybe
     {
         $start = $this->clock->now();
 
@@ -118,7 +118,7 @@ final class Unix implements IPC
         return $this->get($name);
     }
 
-    public function listen(Process\Name $self, ElapsedPeriod $timeout = null): Server
+    public function listen(Process\Name $self, ?ElapsedPeriod $timeout = null): Server
     {
         return new Server\Unix(
             $this->sockets,

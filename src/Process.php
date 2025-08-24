@@ -24,7 +24,7 @@ interface Process
     /**
      * @return Maybe<Message>
      */
-    public function wait(ElapsedPeriod $timeout = null): Maybe;
+    public function wait(?ElapsedPeriod $timeout = null): Maybe;
 
     /**
      * @return Maybe<SideEffect> Returns nothing when couldn't close the connection properly
