@@ -15,28 +15,17 @@
         "issues": "http://github.com/Innmind/IPC/issues"
     },
     "require": {
-        "php": "~8.2",
-        "innmind/immutable": "~4.15|~5.0",
-        "innmind/operating-system": "~5.0",
-        "innmind/url": "~4.0",
-        "innmind/media-type": "~2.0",
-        "innmind/socket": "~6.0",
-        "innmind/server-control": "~5.0"
+        "php": "~8.4",
+        "innmind/foundation": "~2.1"
     },
     "autoload": {
         "psr-4": {
             "Innmind\\IPC\\": "src/"
         }
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\Innmind\\IPC\\": "tests/"
-        }
-    },
     "require-dev": {
-        "phpunit/phpunit": "~10.2",
-        "innmind/static-analysis": "^1.2.1",
-        "innmind/black-box": "~5.5",
+        "innmind/static-analysis": "~1.3",
+        "innmind/black-box": "~6.5",
         "innmind/coding-standard": "~2.0"
     }
 }

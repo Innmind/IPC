@@ -1,5 +1,14 @@
 name: CI
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
+  blackbox:
+    uses: innmind/github-workflows/.github/workflows/black-box-matrix.yml@main
+  coverage:
+    uses: innmind/github-workflows/.github/workflows/coverage-matrix.yml@main
+    secrets: inherit
+  psalm:
+    uses: innmind/github-workflows/.github/workflows/psalm-matrix.yml@main
+  cs:
+    uses: innmind/github-workflows/.github/workflows/cs.yml@main

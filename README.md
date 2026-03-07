@@ -1,6 +1,6 @@
 # Inter-Process Communication (IPC)
 
-[![Build Status](https://github.com/Innmind/IPC/workflows/CI/badge.svg?branch=master)](https://github.com/Innmind/IPC/actions?query=workflow%3ACI)
+[![CI](https://github.com/Innmind/IPC/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Innmind/IPC/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Innmind/IPC/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/IPC)
 [![Type Coverage](https://shepherd.dev/github/Innmind/IPC/coverage.svg)](https://shepherd.dev/github/Innmind/IPC)
 
