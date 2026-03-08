@@ -3,7 +3,11 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\IO\Sockets\Clients\Client;
+use Innmind\OperatingSystem\Sockets;
+use Innmind\IO\Sockets\{
+    Clients\Client,
+    Unix\Address,
+};
 use Innmind\Time\{
     Clock,
     Point,
@@ -22,6 +26,38 @@ final class Process
         private Protocol $protocol,
         private Clock $clock,
     ) {
+    }
+
+    /**
+     * @return Attempt<self>
+     */
+    public static function of(
+        Sockets $sockets,
+        Protocol $protocol,
+        Clock $clock,
+        Address $address,
+        Period $timeout,
+    ): Attempt {
+        return $sockets
+            ->connectTo($address)
+            ->map(static fn($client) => new self(
+                $client->timeoutAfter($timeout),
+                $protocol,
+                $clock,
+            ))
+            ->flatMap(
+                static fn($self) => $self
+                    ->wait()
+                    ->flatMap(static fn($message) => match ($message->equals(Message::connectionStart())) {
+                        true => Attempt::result($self),
+                        false => Attempt::error(new \RuntimeException('Connection handshake failure')),
+                    }),
+            )
+            ->flatMap(
+                static fn($self) => $self
+                    ->send(Sequence::of(Message::connectionStartOk()))
+                    ->map(static fn() => $self),
+            );
     }
 
     /**
