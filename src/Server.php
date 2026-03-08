@@ -20,6 +20,7 @@ final class Server
 {
     /**
      * @param Monoid_<T> $monoid
+     * @param \Closure(T, Server\Continuation<T>): Server\Continuation<T> $monitor
      */
     private function __construct(
         private OperatingSystem $os,
@@ -27,6 +28,7 @@ final class Server
         private Address $address,
         private Period $timeout,
         private Monoid_ $monoid,
+        private \Closure $monitor,
     ) {
     }
 
@@ -45,6 +47,7 @@ final class Server
             $address,
             $timeout,
             Monoid::sideEffect,
+            self::defaultMonitor(Monoid::sideEffect),
         );
     }
 
@@ -64,6 +67,24 @@ final class Server
             $this->address,
             $this->timeout,
             $monoid,
+            self::defaultMonitor($monoid),
+        );
+    }
+
+    /**
+     * @param callable(T, Server\Continuation<T>): Server\Continuation<T> $monitor
+     *
+     * @return self<T>
+     */
+    public function monitor(callable $monitor): self
+    {
+        return new self(
+            $this->os,
+            $this->protocol,
+            $this->address,
+            $this->timeout,
+            $this->monoid,
+            \Closure::fromCallable($monitor),
         );
     }
 
@@ -88,6 +109,20 @@ final class Server
                 $this->address,
                 $this->timeout,
                 $this->monoid,
+                $this->monitor,
             ));
+    }
+
+    /**
+     * @psalm-pure
+     * @template A
+     *
+     * @param Monoid_<A> $monoid
+     *
+     * @return \Closure(A, Server\Continuation<A>): Server\Continuation<A>
+     */
+    private static function defaultMonitor(Monoid_ $monoid): \Closure
+    {
+        return static fn($_, Server\Continuation $continuation) => $continuation;
     }
 }
