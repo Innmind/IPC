@@ -3,7 +3,12 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\Time\Period;
+use Innmind\IO\Sockets\Clients\Client;
+use Innmind\Time\{
+    Clock,
+    Point,
+    Period,
+};
 use Innmind\Immutable\{
     Sequence,
     Attempt,
@@ -12,8 +17,11 @@ use Innmind\Immutable\{
 
 final class Process
 {
-    private function __construct()
-    {
+    private function __construct(
+        private Client $socket,
+        private Protocol $protocol,
+        private Clock $clock,
+    ) {
     }
 
     /**
@@ -23,7 +31,20 @@ final class Process
      */
     public function send(Sequence $messages): Attempt
     {
-        return Attempt::result(SideEffect::identity);
+        return $messages
+            ->sink(SideEffect::identity)
+            ->attempt(
+                fn($_, $message) => $this
+                    ->protocol
+                    ->encode($message)
+                    ->map(Sequence::of(...))
+                    ->flatMap($this->socket->sink(...))
+                    ->flatMap(fn() => $this->wait())
+                    ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
+                        true => Attempt::result(SideEffect::identity),
+                        false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),
+                    }),
+            );
     }
 
     /**
@@ -31,7 +52,7 @@ final class Process
      */
     public function wait(?Period $timeout = null): Attempt
     {
-        return Attempt::error(new \RuntimeException);
+        return $this->doWait($this->clock->now(), $timeout);
     }
 
     /**
@@ -39,6 +60,55 @@ final class Process
      */
     public function close(): Attempt
     {
-        return Attempt::result(SideEffect::identity);
+        return $this->socket->close();
+    }
+
+    /**
+     * @return Attempt<Message>
+     */
+    private function doWait(
+        Point $start,
+        ?Period $timeout = null,
+    ): Attempt {
+        $heartbeat = $this
+            ->protocol
+            ->encode(Message::heartbeat())
+            ->unwrap();
+
+        return $this
+            ->socket
+            ->heartbeatWith(static fn() => Sequence::of($heartbeat))
+            ->abortWhen(function() use ($start, $timeout) {
+                if (\is_null($timeout)) {
+                    return false;
+                }
+
+                return $this
+                    ->clock
+                    ->now()
+                    ->elapsedSince($start)
+                    ->longerThan($timeout->asElapsedPeriod());
+            })
+            ->frames($this->protocol->frame())
+            ->one()
+            ->flatMap(function($message) use ($start, $timeout) {
+                if ($message->equals(Message::heartbeat())) {
+                    return $this->doWait($start, $timeout);
+                }
+
+                return Attempt::result($message);
+            })
+            ->flatMap(function($message) {
+                if ($message->equals(Message::connectionClose())) {
+                    return $this
+                        ->send(Sequence::of(Message::connectionCloseOk()))
+                        ->flatMap(fn() => $this->close())
+                        ->flatMap(static fn() => Attempt::error(new \RuntimeException(
+                            'Connection closed by the server',
+                        )));
+                }
+
+                return Attempt::result($message);
+            });
     }
 }
