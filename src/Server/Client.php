@@ -77,25 +77,18 @@ final class Client
                 fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $this
-                        ->client
-                        ->heartbeatWith(static fn() => Sequence::of($heartbeat))
-                        ->abortWhen(fn() => $this->abort)
-                        ->frames($frame)
-                        ->one()
+                        ->wait()
                         ->flatMap(
-                            fn($message) => match ($message->equals(Message::heartbeat())) {
-                                true => Attempt::result($identity),
-                                false => $this
-                                    ->client
-                                    ->sink(Sequence::of($ack))
-                                    ->flatMap(
-                                        /** @psalm-suppress MixedArgument Don't know why it loses the type */
-                                        fn() => $this->handle(
-                                            $identity,
-                                            $message,
-                                        ),
+                            fn($message) => $this
+                                ->client
+                                ->sink(Sequence::of($ack))
+                                ->flatMap(
+                                    /** @psalm-suppress MixedArgument Don't know why it loses the type */
+                                    fn() => $this->handle(
+                                        $identity,
+                                        $message,
                                     ),
-                            },
+                                ),
                         ),
                 },
             )
@@ -175,18 +168,42 @@ final class Client
                     ->encode($message)
                     ->map(Sequence::of(...))
                     ->flatMap($this->client->sink(...))
-                    ->flatMap(
-                        fn() => $this
-                            ->client
-                            ->heartbeatWith(static fn() => Sequence::of($heartbeat))
-                            ->abortWhen(fn() => $this->abort)
-                            ->frames($frame)
-                            ->one(),
-                    )
+                    ->flatMap(fn() => $this->wait())
                     ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
                         true => Attempt::result($carry),
                         false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),
                     }),
             );
+    }
+
+    /**
+     * @return Attempt<Message>
+     */
+    private function wait(): Attempt
+    {
+        // unwrapping is safe as it's internal messages
+        $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
+
+        // This is to avoid recursion. Otherwise for processes that wait for a
+        // long time it may reach the maximum call stack.
+        // todo find a more elegant way
+        do {
+            $result = $this
+                ->client
+                ->heartbeatWith(static fn() => Sequence::of($heartbeat))
+                ->abortWhen(fn() => $this->abort)
+                ->frames($this->protocol->frame())
+                ->one()
+                ->match(
+                    static fn($message) => $message,
+                    static fn($e) => $e,
+                );
+
+            if ($result instanceof \Throwable) {
+                return Attempt::error($result);
+            }
+        } while ($result->equals(Message::heartbeat()));
+
+        return Attempt::result($result);
     }
 }
