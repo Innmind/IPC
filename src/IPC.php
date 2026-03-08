@@ -107,7 +107,12 @@ final class IPC
      */
     public function serve(Process\Name $name): Server
     {
-        return Server::of();
+        return Server::of(
+            $this->os,
+            $this->protocol,
+            $this->addressOf($name),
+            $this->heartbeat,
+        );
     }
 
     private function addressOf(Process\Name $name): Address

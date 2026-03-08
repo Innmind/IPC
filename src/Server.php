@@ -3,6 +3,10 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
+use Innmind\Async\Scheduler;
+use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\IO\Sockets\Unix\Address;
+use Innmind\Time\Period;
 use Innmind\Immutable\{
     Attempt,
     SideEffect,
@@ -16,16 +20,31 @@ final class Server
     /**
      * @param T $carry
      */
-    private function __construct(private mixed $carry)
-    {
+    private function __construct(
+        private OperatingSystem $os,
+        private Protocol $protocol,
+        private Address $address,
+        private Period $timeout,
+        private mixed $carry,
+    ) {
     }
 
     /**
      * @return self<SideEffect>
      */
-    public static function of(): self
-    {
-        return new self(SideEffect::identity);
+    public static function of(
+        OperatingSystem $os,
+        Protocol $protocol,
+        Address $address,
+        Period $timeout,
+    ): self {
+        return new self(
+            $os,
+            $protocol,
+            $address,
+            $timeout,
+            SideEffect::identity,
+        );
     }
 
     /**
@@ -38,7 +57,13 @@ final class Server
      */
     public function sink(mixed $carry): self
     {
-        return new self($carry);
+        return new self(
+            $this->os,
+            $this->protocol,
+            $this->address,
+            $this->timeout,
+            $carry,
+        );
     }
 
     // todo differentiate a reducer for the server loop (aka the scheduler sink)
@@ -55,6 +80,12 @@ final class Server
      */
     public function with(callable $listen): Attempt
     {
-        return Attempt::result($this->carry);
+        return Scheduler::of($this->os)
+            ->sink(Attempt::result($this->carry))
+            ->with(Server\Instance::of(
+                $this->protocol,
+                $this->address,
+                $this->timeout,
+            ));
     }
 }
