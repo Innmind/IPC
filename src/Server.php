@@ -110,6 +110,7 @@ final class Server
                 $this->timeout,
                 $this->monoid,
                 $this->monitor,
+                \Closure::fromCallable($listen),
             ));
     }
 

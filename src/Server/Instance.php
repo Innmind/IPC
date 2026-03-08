@@ -3,7 +3,11 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC\Server;
 
-use Innmind\IPC\Protocol;
+use Innmind\IPC\{
+    Protocol,
+    Continuation as Continuation_,
+    Message,
+};
 use Innmind\Async\Scope;
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\IO\Sockets\{
@@ -25,6 +29,7 @@ final class Instance
     /**
      * @param Monoid<T> $monoid
      * @param \Closure(T, Continuation<T>): Continuation<T> $monitor
+     * @param \Closure(Message, Continuation_<T>, T): Continuation_<T> $listen
      */
     private function __construct(
         private Server|Unstarted $server,
@@ -32,6 +37,7 @@ final class Instance
         private Period $timeout,
         private Monoid $monoid,
         private \Closure $monitor,
+        private \Closure $listen,
     ) {
     }
 
@@ -94,6 +100,7 @@ final class Instance
      *
      * @param Monoid<A> $monoid
      * @param \Closure(A, Continuation<A>): Continuation<A> $monitor
+     * @param \Closure(Message, Continuation_<A>, A): Continuation_<A> $listen
      *
      * @return self<A>
      */
@@ -103,6 +110,7 @@ final class Instance
         Period $timeout,
         Monoid $monoid,
         \Closure $monitor,
+        \Closure $listen,
     ): self {
         return new self(
             Unstarted::of(
@@ -113,6 +121,7 @@ final class Instance
             $timeout,
             $monoid,
             $monitor,
+            $listen,
         );
     }
 
@@ -139,6 +148,7 @@ final class Instance
                 $socket->timeoutAfter($this->timeout),
                 $this->protocol,
                 $this->monoid,
+                $this->listen,
             ))
             ->map(Sequence::of(...))
             ->match(

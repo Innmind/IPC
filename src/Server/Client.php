@@ -6,6 +6,8 @@ namespace Innmind\IPC\Server;
 use Innmind\IPC\{
     Protocol,
     Message,
+    Continuation,
+    Server\Client\Stop,
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Signals\Signal;
@@ -24,11 +26,13 @@ final class Client
 {
     /**
      * @param Monoid<T> $monoid
+     * @param \Closure(Message, Continuation<T>, T): Continuation<T> $listen
      */
     private function __construct(
         private Socket $client,
         private Protocol $protocol,
         private Monoid $monoid,
+        private \Closure $listen,
     ) {
     }
 
@@ -98,13 +102,22 @@ final class Client
                 },
             )
             ->recover(
-                fn($e) => $this
-                    ->client
-                    ->close()
-                    ->match( // make sure to return the original error
-                        static fn() => Attempt::error($e),
-                        static fn() => Attempt::error($e),
-                    ),
+                fn($e) => match (true) {
+                    $e instanceof Stop => $this
+                        ->client
+                        ->close()
+                        ->match( // make sure to keep the user provided value
+                            static fn() => Attempt::result($e->unwrap()),
+                            static fn() => Attempt::result($e->unwrap()),
+                        ),
+                    default => $this
+                        ->client
+                        ->close()
+                        ->match( // make sure to return the original error
+                            static fn() => Attempt::error($e),
+                            static fn() => Attempt::error($e),
+                        ),
+                },
             );
     }
 
@@ -112,6 +125,7 @@ final class Client
      * @template A
      *
      * @param Monoid<A> $monoid
+     * @param \Closure(Message, Continuation<A>, A): Continuation<A> $listen
      *
      * @return self<A>
      */
@@ -119,8 +133,9 @@ final class Client
         Socket $client,
         Protocol $protocol,
         Monoid $monoid,
+        \Closure $listen,
     ): self {
-        return new self($client, $protocol, $monoid);
+        return new self($client, $protocol, $monoid, $listen);
     }
 
     /**
@@ -130,6 +145,35 @@ final class Client
      */
     private function handle(mixed $identity, Message $message): Attempt
     {
-        return Attempt::result($identity); // todo
+        /** @psalm-suppress MixedArgument Don't know why it loses the type */
+        return ($this->listen)($message, Continuation::new($identity), $identity)->match(
+            fn($carry, $messages) => $this->respond($carry, $messages),
+            fn($carry, $messages) => $this
+                ->respond($carry, $messages)
+                ->flatMap(static fn($carry) => Attempt::error(new Stop($carry))),
+        );
+    }
+
+    /**
+     * @param T $carry
+     * @param Sequence<Message> $messages
+     *
+     * @return Attempt<T>
+     */
+    private function respond(
+        mixed $carry,
+        Sequence $messages,
+    ): Attempt {
+        return $messages
+            ->sink($carry)
+            ->attempt(
+                fn($carry, $message) => $this
+                    ->protocol
+                    ->encode($message)
+                    ->map(Sequence::of(...))
+                    ->flatMap($this->client->sink(...))
+                    // todo wait for acks
+                    ->map(static fn(): mixed => $carry),
+            );
     }
 }
