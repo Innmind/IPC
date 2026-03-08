@@ -162,6 +162,11 @@ final class Client
         mixed $carry,
         Sequence $messages,
     ): Attempt {
+        $frame = $this->protocol->frame();
+        // unwrapping is safe as it's internal messages
+        $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
+        $ack = $this->protocol->encode(Message::ack())->unwrap();
+
         return $messages
             ->sink($carry)
             ->attempt(
@@ -170,8 +175,18 @@ final class Client
                     ->encode($message)
                     ->map(Sequence::of(...))
                     ->flatMap($this->client->sink(...))
-                    // todo wait for acks
-                    ->map(static fn(): mixed => $carry),
+                    ->flatMap(
+                        fn() => $this
+                            ->client
+                            ->heartbeatWith(static fn() => Sequence::of($heartbeat))
+                            ->abortWhen(fn() => $this->abort)
+                            ->frames($frame)
+                            ->one(),
+                    )
+                    ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
+                        true => Attempt::result($carry),
+                        false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),
+                    }),
             );
     }
 }
