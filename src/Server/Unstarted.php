@@ -3,7 +3,6 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC\Server;
 
-use Innmind\IPC\Protocol;
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\IO\Sockets\{
     Servers\Server,

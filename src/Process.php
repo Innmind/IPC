@@ -10,7 +10,6 @@ use Innmind\IO\Sockets\{
 };
 use Innmind\Time\{
     Clock,
-    Point,
     Period,
 };
 use Innmind\Immutable\{

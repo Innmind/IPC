@@ -16,7 +16,6 @@ use Innmind\IO\Sockets\Clients\Client as Socket;
 use Innmind\Immutable\{
     Sequence,
     Attempt,
-    SideEffect,
     Monoid,
 };
 
@@ -148,7 +147,7 @@ final class Client
     private function handle(
         Pipe $pipe,
         mixed $identity,
-        Message $message
+        Message $message,
     ): Attempt {
         return ($this->listen)($message, Continuation::new($identity), $identity)->match(
             static fn($carry, $messages) => $pipe

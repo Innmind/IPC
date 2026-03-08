@@ -38,7 +38,7 @@ final class Pipe
      */
     public function wait(
         callable $abort,
-        ?Period $timeout = null
+        ?Period $timeout = null,
     ): Attempt {
         $start = $this->clock->now();
         // It's safe to unwrap as it's an internal message that never fails
