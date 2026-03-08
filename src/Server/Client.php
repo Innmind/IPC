@@ -50,13 +50,22 @@ final class Client
         );
         $identity = $this->monoid->identity();
 
-        $signaled = $os
+        $handshaked = $os
             ->process()
             ->signals()
             ->listen(Signal::terminate, function() {
                 $this->abort = true;
             })
-            ->map(static fn() => $identity);
+            ->flatMap(static fn() => $pipe->send(
+                Sequence::of(Message::connectionStart()),
+            ))
+            ->flatMap(fn() => $pipe->wait(
+                fn() => $this->abort,
+            ))
+            ->flatMap(static fn($message) => match ($message->equals(Message::connectionStartOk())) {
+                true => Attempt::result($identity),
+                false => Attempt::error(new \RuntimeException('Connection handshake failure')),
+            });
 
         // Use an infinite sequence to iteractively wait for a message to arrive
         // If the received one is a heartbeat we return a side effect, meaning
@@ -67,8 +76,8 @@ final class Client
         // that by default ->one() will wait forever.
         // And since we use the sink pattern on the sequence, everything will
         // stop as soon any part of the system returns an error.
-        return Sequence::lazy(static function() use ($signaled, $identity) {
-            yield $signaled;
+        return Sequence::lazy(static function() use ($handshaked, $identity) {
+            yield $handshaked;
 
             while (true) {
                 yield $identity;
