@@ -55,7 +55,7 @@ final class Server
      * @psalm-mutation-free
      * @template U
      *
-     * @param Monoid_<U> $carry
+     * @param Monoid_<U> $monoid
      *
      * @return self<U>
      */
