@@ -3,19 +3,13 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\OperatingSystem\{
-    Sockets,
-    CurrentProcess,
-};
+use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Filesystem\{
     Adapter,
     Name as FileName,
 };
 use Innmind\IO\Sockets\Unix\Address;
-use Innmind\Time\{
-    Clock,
-    Period,
-};
+use Innmind\Time\Period;
 use Innmind\Url\Path;
 use Innmind\Immutable\{
     Attempt,
@@ -26,10 +20,8 @@ use Innmind\Immutable\{
 final class IPC
 {
     private function __construct(
-        private Sockets $sockets,
+        private OperatingSystem $os,
         private Adapter $filesystem,
-        private Clock $clock,
-        private CurrentProcess $process,
         private Protocol $protocol,
         private Path $path,
         private Period $heartbeat,
@@ -37,25 +29,19 @@ final class IPC
     }
 
     public static function of(
-        Sockets $sockets,
-        Adapter $filesystem,
-        Clock $clock,
-        CurrentProcess $process,
+        OperatingSystem $os,
         Path $path,
-        Period $heartbeat,
+        ?Period $heartbeat = null,
     ): self {
-        if (!$path->directory()) {
-            throw new \LogicException('The path must represent a directory');
-        }
-
         return new self(
-            $sockets,
-            $filesystem,
-            $clock,
-            $process,
+            $os,
+            $os
+                ->filesystem()
+                ->mount($path)
+                ->unwrap(),
             Protocol::binary(),
             $path,
-            $heartbeat,
+            $heartbeat ?? Period::second(1),
         );
     }
 
@@ -83,16 +69,17 @@ final class IPC
         ?Period $timeout = null,
     ): Attempt {
         $file = FileName::of($name->toString());
-        $start = $this->clock->now();
+        $start = $this->os->clock()->now();
 
         return Sequence::lazy(function() use ($file) {
             while (!$this->filesystem->contains($file)) {
-                yield $this->clock->now();
+                yield $this->os->clock()->now();
             }
         })
             ->map(
                 fn($now) => $this
-                    ->process
+                    ->os
+                    ->process()
                     ->halt($this->heartbeat)
                     ->map(static fn() => $now->elapsedSince($start)),
             )
@@ -107,9 +94,9 @@ final class IPC
                 },
             ))
             ->flatMap(fn() => Process::of(
-                $this->sockets,
+                $this->os->sockets(),
                 $this->protocol,
-                $this->clock,
+                $this->os->clock(),
                 $this->addressOf($name),
                 $this->heartbeat,
             ));
