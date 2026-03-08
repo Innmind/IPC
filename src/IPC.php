@@ -97,7 +97,7 @@ final class IPC
                     ->map(static fn() => $now->elapsedSince($start)),
             )
             ->sink(SideEffect::identity)
-            ->attempt(fn($_, $halted) => $halted->flatMap(
+            ->attempt(static fn($_, $halted) => $halted->flatMap(
                 static fn($elapsed) => match ($timeout) {
                     null => Attempt::result($_),
                     default => match ($elapsed->longerThan($timeout->asElapsedPeriod())) {

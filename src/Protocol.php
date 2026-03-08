@@ -49,7 +49,7 @@ final class Protocol
 
                         return $contentLength;
                     })
-                    ->flatMap(static fn($contentLength) => match($contentLength) {
+                    ->flatMap(static fn($contentLength) => match ($contentLength) {
                         0 => Frame::just([$mediaType, Str::of('')]),
                         default => Frame::chunk($contentLength)
                             ->strict()
