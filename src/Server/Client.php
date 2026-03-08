@@ -8,6 +8,7 @@ use Innmind\IPC\{
     Message,
     Continuation,
     Server\Client\Stop,
+    Pipe,
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Signals\Signal;
@@ -42,6 +43,11 @@ final class Client
      */
     public function __invoke(OperatingSystem $os): Attempt
     {
+        $pipe = Pipe::of(
+            $this->client,
+            $this->protocol,
+            $os->clock(),
+        );
         $identity = $this->monoid->identity();
 
         $signaled = $os
@@ -51,10 +57,6 @@ final class Client
                 $this->abort = true;
             })
             ->map(static fn() => $identity);
-        $frame = $this->protocol->frame();
-        // unwrapping is safe as it's internal messages
-        $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
-        $ack = $this->protocol->encode(Message::ack())->unwrap();
 
         // Use an infinite sequence to iteractively wait for a message to arrive
         // If the received one is a heartbeat we return a side effect, meaning
@@ -76,15 +78,15 @@ final class Client
             ->attempt(
                 fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
-                    default => $this
-                        ->wait()
+                    default => $pipe
+                        ->wait(fn() => $this->abort)
                         ->flatMap(
-                            fn($message) => $this
-                                ->client
-                                ->sink(Sequence::of($ack))
+                            fn($message) => $pipe
+                                ->send(Sequence::of(Message::ack()))
                                 ->flatMap(
                                     /** @psalm-suppress MixedArgument Don't know why it loses the type */
                                     fn() => $this->handle(
+                                        $pipe,
                                         $identity,
                                         $message,
                                     ),
@@ -134,76 +136,18 @@ final class Client
      *
      * @return Attempt<T>
      */
-    private function handle(mixed $identity, Message $message): Attempt
-    {
-        /** @psalm-suppress MixedArgument Don't know why it loses the type */
-        return ($this->listen)($message, Continuation::new($identity), $identity)->match(
-            fn($carry, $messages) => $this->respond($carry, $messages),
-            fn($carry, $messages) => $this
-                ->respond($carry, $messages)
-                ->flatMap(static fn($carry) => Attempt::error(new Stop($carry))),
-        );
-    }
-
-    /**
-     * @param T $carry
-     * @param Sequence<Message> $messages
-     *
-     * @return Attempt<T>
-     */
-    private function respond(
-        mixed $carry,
-        Sequence $messages,
+    private function handle(
+        Pipe $pipe,
+        mixed $identity,
+        Message $message
     ): Attempt {
-        $frame = $this->protocol->frame();
-        // unwrapping is safe as it's internal messages
-        $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
-        $ack = $this->protocol->encode(Message::ack())->unwrap();
-
-        return $messages
-            ->sink($carry)
-            ->attempt(
-                fn($carry, $message) => $this
-                    ->protocol
-                    ->encode($message)
-                    ->map(Sequence::of(...))
-                    ->flatMap($this->client->sink(...))
-                    ->flatMap(fn() => $this->wait())
-                    ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
-                        true => Attempt::result($carry),
-                        false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),
-                    }),
-            );
-    }
-
-    /**
-     * @return Attempt<Message>
-     */
-    private function wait(): Attempt
-    {
-        // unwrapping is safe as it's internal messages
-        $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
-
-        // This is to avoid recursion. Otherwise for processes that wait for a
-        // long time it may reach the maximum call stack.
-        // todo find a more elegant way
-        do {
-            $result = $this
-                ->client
-                ->heartbeatWith(static fn() => Sequence::of($heartbeat))
-                ->abortWhen(fn() => $this->abort)
-                ->frames($this->protocol->frame())
-                ->one()
-                ->match(
-                    static fn($message) => $message,
-                    static fn($e) => $e,
-                );
-
-            if ($result instanceof \Throwable) {
-                return Attempt::error($result);
-            }
-        } while ($result->equals(Message::heartbeat()));
-
-        return Attempt::result($result);
+        return ($this->listen)($message, Continuation::new($identity), $identity)->match(
+            static fn($carry, $messages) => $pipe
+                ->send($messages)
+                ->map(static fn(): mixed => $carry),
+            static fn($carry, $messages) => $pipe
+                ->send($messages)
+                ->flatMap(static fn() => Attempt::error(new Stop($carry))),
+        );
     }
 }
