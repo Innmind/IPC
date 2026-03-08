@@ -3,6 +3,7 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC\Message;
 
+use Innmind\IPC\Message;
 use Innmind\MediaType\{
     MediaType,
     TopLevel,
@@ -17,6 +18,17 @@ enum Protocol implements Implementation
     case connectionCloseOk;
     case heartbeat;
     case ack;
+
+    public static function parse(Str $content): ?self
+    {
+        foreach (self::cases() as $case) {
+            if ($case->content()->equals($content)) {
+                return $case;
+            }
+        }
+
+        return null;
+    }
 
     #[\Override]
     public function mediaType(): MediaType
@@ -38,5 +50,17 @@ enum Protocol implements Implementation
             self::heartbeat => 'innmind/ipc:heartbeat',
             self::ack => 'innmind/ipc:ack',
         });
+    }
+
+    public function message(): Message
+    {
+        return match ($this) {
+            self::connectionStart => Message::connectionStart(),
+            self::connectionStartOk => Message::connectionStartOk(),
+            self::connectionClose => Message::connectionClose(),
+            self::connectionCloseOk => Message::connectionCloseOk(),
+            self::heartbeat => Message::heartbeat(),
+            self::ack => Message::ack(),
+        };
     }
 }
