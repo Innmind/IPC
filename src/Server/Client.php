@@ -33,6 +33,7 @@ final class Client
         private Protocol $protocol,
         private Monoid $monoid,
         private \Closure $listen,
+        private bool $abort = false,
     ) {
     }
 
@@ -41,14 +42,13 @@ final class Client
      */
     public function __invoke(OperatingSystem $os): Attempt
     {
-        $abort = false;
         $identity = $this->monoid->identity();
 
         $signaled = $os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, static function() use (&$abort) {
-                $abort = true;
+            ->listen(Signal::terminate, function() {
+                $this->abort = true;
             })
             ->map(static fn() => $identity);
         $frame = $this->protocol->frame();
@@ -79,9 +79,7 @@ final class Client
                     default => $this
                         ->client
                         ->heartbeatWith(static fn() => Sequence::of($heartbeat))
-                        ->abortWhen(static function() use (&$abort) {
-                            return $abort;
-                        })
+                        ->abortWhen(fn() => $this->abort)
                         ->frames($frame)
                         ->one()
                         ->flatMap(
