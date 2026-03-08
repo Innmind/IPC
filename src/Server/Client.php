@@ -14,29 +14,39 @@ use Innmind\Immutable\{
     Sequence,
     Attempt,
     SideEffect,
+    Monoid,
 };
 
+/**
+ * @template T
+ */
 final class Client
 {
+    /**
+     * @param Monoid<T> $monoid
+     */
     private function __construct(
         private Socket $client,
         private Protocol $protocol,
+        private Monoid $monoid,
     ) {
     }
 
     /**
-     * @return Attempt<SideEffect>
+     * @return Attempt<T>
      */
     public function __invoke(OperatingSystem $os): Attempt
     {
         $abort = false;
+        $identity = $this->monoid->identity();
 
         $signaled = $os
             ->process()
             ->signals()
             ->listen(Signal::terminate, static function() use (&$abort) {
                 $abort = true;
-            });
+            })
+            ->map(static fn() => $identity);
         $frame = $this->protocol->frame();
         // unwrapping is safe as it's internal messages
         $heartbeat = $this->protocol->encode(Message::heartbeat())->unwrap();
@@ -51,16 +61,16 @@ final class Client
         // that by default ->one() will wait forever.
         // And since we use the sink pattern on the sequence, everything will
         // stop as soon any part of the system returns an error.
-        return Sequence::lazy(static function() use ($signaled) {
+        return Sequence::lazy(static function() use ($signaled, $identity) {
             yield $signaled;
 
             while (true) {
-                yield SideEffect::identity;
+                yield $identity;
             }
         })
-            ->sink(SideEffect::identity)
+            ->sink($identity)
             ->attempt(
-                fn($_, $val) => match (true) {
+                fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $this
                         ->client
@@ -72,11 +82,17 @@ final class Client
                         ->one()
                         ->flatMap(
                             fn($message) => match ($message->equals(Message::heartbeat())) {
-                                true => Attempt::result(SideEffect::identity),
+                                true => Attempt::result($identity),
                                 false => $this
                                     ->client
                                     ->sink(Sequence::of($ack))
-                                    ->flatMap(fn() => $this->handle($message)),
+                                    ->flatMap(
+                                        /** @psalm-suppress MixedArgument Don't know why it loses the type */
+                                        fn() => $this->handle(
+                                            $identity,
+                                            $message,
+                                        ),
+                                    ),
                             },
                         ),
                 },
@@ -92,18 +108,28 @@ final class Client
             );
     }
 
+    /**
+     * @template A
+     *
+     * @param Monoid<A> $monoid
+     *
+     * @return self<A>
+     */
     public static function of(
         Socket $client,
         Protocol $protocol,
+        Monoid $monoid,
     ): self {
-        return new self($client, $protocol);
+        return new self($client, $protocol, $monoid);
     }
 
     /**
-     * @return Attempt<SideEffect>
+     * @param T $identity
+     *
+     * @return Attempt<T>
      */
-    private function handle(Message $message): Attempt
+    private function handle(mixed $identity, Message $message): Attempt
     {
-        return Attempt::result(SideEffect::identity); // todo
+        return Attempt::result($identity); // todo
     }
 }

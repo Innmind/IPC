@@ -14,20 +14,26 @@ use Innmind\Time\Period;
 use Innmind\Immutable\{
     Attempt,
     Sequence,
+    Monoid,
 };
 
+/**
+ * @template T
+ */
 final class Instance
 {
+    /**
+     * @param Monoid<T> $monoid
+     */
     private function __construct(
         private Server|Unstarted $server,
         private Protocol $protocol,
         private Period $timeout,
+        private Monoid $monoid,
     ) {
     }
 
     /**
-     * @template T
-     *
      * @param Attempt<T> $carry
      * @param Continuation<Attempt<T>> $continuation
      *
@@ -53,12 +59,24 @@ final class Instance
                 );
         }
 
+        /** @var Sequence<T> */
+        $all = Sequence::of();
+        /** @var Sequence<Attempt<T>> */
+        $results = $continuation->results();
+        $carry = $results
+            ->prepend(Sequence::of($carry))
+            ->sink($all)
+            ->attempt(static fn($all, $result) => $result->map($all))
+            ->map(fn($results) => $results->fold($this->monoid));
+        $continuation = $continuation->carryWith($carry);
+
         return $this
             ->server
             ->accept()
             ->map(fn($socket) => Client::of(
                 $socket->timeoutAfter($this->timeout),
                 $this->protocol,
+                $this->monoid,
             ))
             ->map(Sequence::of(...))
             ->match(
@@ -67,10 +85,18 @@ final class Instance
             );
     }
 
+    /**
+     * @template A
+     *
+     * @param Monoid<A> $monoid
+     *
+     * @return self<A>
+     */
     public static function of(
         Protocol $protocol,
         Address $address,
         Period $timeout,
+        Monoid $monoid,
     ): self {
         return new self(
             Unstarted::of(
@@ -79,6 +105,7 @@ final class Instance
             ),
             $protocol,
             $timeout,
+            $monoid,
         );
     }
 }

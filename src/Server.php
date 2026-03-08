@@ -10,6 +10,7 @@ use Innmind\Time\Period;
 use Innmind\Immutable\{
     Attempt,
     SideEffect,
+    Monoid as Monoid_,
 };
 
 /**
@@ -18,14 +19,14 @@ use Innmind\Immutable\{
 final class Server
 {
     /**
-     * @param T $carry
+     * @param Monoid_<T> $monoid
      */
     private function __construct(
         private OperatingSystem $os,
         private Protocol $protocol,
         private Address $address,
         private Period $timeout,
-        private mixed $carry,
+        private Monoid_ $monoid,
     ) {
     }
 
@@ -43,7 +44,7 @@ final class Server
             $protocol,
             $address,
             $timeout,
-            SideEffect::identity,
+            Monoid::sideEffect,
         );
     }
 
@@ -51,18 +52,18 @@ final class Server
      * @psalm-mutation-free
      * @template U
      *
-     * @param U $carry
+     * @param Monoid_<U> $carry
      *
      * @return self<U>
      */
-    public function sink(mixed $carry): self
+    public function sink(Monoid_ $monoid): self
     {
         return new self(
             $this->os,
             $this->protocol,
             $this->address,
             $this->timeout,
-            $carry,
+            $monoid,
         );
     }
 
@@ -81,11 +82,12 @@ final class Server
     public function with(callable $listen): Attempt
     {
         return Scheduler::of($this->os)
-            ->sink(Attempt::result($this->carry))
+            ->sink(Attempt::result($this->monoid->identity()))
             ->with(Server\Instance::of(
                 $this->protocol,
                 $this->address,
                 $this->timeout,
+                $this->monoid,
             ));
     }
 }
