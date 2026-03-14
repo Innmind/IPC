@@ -71,6 +71,47 @@ return static function() {
         },
     );
 
+    yield test(
+        'Server properly handle a client that close the connection without sending messages',
+        static function($assert) use ($os) {
+            $process = $os
+                ->control()
+                ->processes()
+                ->execute(
+                    Command::foreground('sleep 2 && php fixtures/close-client.php')
+                        ->withArgument('fixtures/client.php')
+                        ->withEnvironment('TMPDIR', $os->status()->tmp()->toString())
+                        ->withEnvironment('PATH', $_SERVER['PATH'])
+                        ->withWorkingDirectory(Path::of(__DIR__.'/../')),
+                )
+                ->unwrap();
+
+            $result = IPC::of(
+                $os,
+                $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+            )
+                ->serve(Process\Name::of('server'))
+                ->monitor(
+                    static fn($result, $continuation) => $continuation->finish(),
+                )
+                ->with(static fn($message, $continuation) => $continuation)
+                ->match(
+                    static fn($result) => $result,
+                    static fn() => null,
+                );
+
+            $assert->same(SideEffect::identity, $result);
+            $assert->same(
+                '',
+                $process
+                    ->output()
+                    ->map(static fn($chunk) => $chunk->data())
+                    ->fold(Concat::monoid)
+                    ->toString(),
+            );
+        },
+    );
+
     yield proof(
         'Server wait for client',
         given(
