@@ -15,7 +15,7 @@ final class Abort
         return $this->value;
     }
 
-    public static function new(): self
+    public static function disabled(): self
     {
         return new self;
     }

@@ -154,7 +154,7 @@ final class Client
             $protocol,
             $monoid,
             $listen,
-            Abort::new(),
+            Abort::disabled(),
         );
     }
 
