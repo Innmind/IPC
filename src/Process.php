@@ -64,7 +64,8 @@ final class Process
             )
             ->flatMap(
                 static fn($self) => $self
-                    ->send(Sequence::of(Message::connectionStartOk()))
+                    ->pipe
+                    ->signal(Message::connectionStartOk())
                     ->map(static fn() => $self),
             );
     }
