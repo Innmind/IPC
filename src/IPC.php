@@ -7,6 +7,7 @@ use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Filesystem\{
     Adapter,
     Name as FileName,
+    Recover,
 };
 use Innmind\IO\Sockets\Unix\Address;
 use Innmind\Time\Period;
@@ -40,6 +41,7 @@ final class IPC
             $os
                 ->filesystem()
                 ->mount($path)
+                ->recover(Recover::mount(...))
                 ->unwrap(),
             Protocol::binary(),
             $path,
