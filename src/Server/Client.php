@@ -57,8 +57,8 @@ final class Client
             ->process()
             ->signals()
             ->listen(Signal::terminate, $this->abort)
-            ->flatMap(static fn() => $pipe->send(
-                Sequence::of(Message::connectionStart()),
+            ->flatMap(static fn() => $pipe->signal(
+                Message::connectionStart(),
             ))
             ->flatMap(static fn() => $pipe->wait())
             ->flatMap(static fn($message) => match ($message->equals(Message::connectionStartOk())) {

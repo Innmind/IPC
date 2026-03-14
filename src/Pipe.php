@@ -124,4 +124,18 @@ final class Pipe
                     }),
             );
     }
+
+    /**
+     * @return Attempt<SideEffect>
+     */
+    public function signal(Message $message): Attempt
+    {
+        $socket = $this->socket->abortWhen($this->abort->enabled(...));
+
+        return $this
+            ->protocol
+            ->encode($message)
+            ->map(Sequence::of(...))
+            ->flatMap($socket->sink(...));
+    }
 }
