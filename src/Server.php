@@ -10,7 +10,7 @@ use Innmind\Time\Period;
 use Innmind\Immutable\{
     Attempt,
     SideEffect,
-    Monoid as Monoid_,
+    Monoid,
 };
 
 /**
@@ -19,7 +19,7 @@ use Innmind\Immutable\{
 final class Server
 {
     /**
-     * @param Monoid_<T> $monoid
+     * @param Monoid<T> $monoid
      * @param \Closure(T, Server\Continuation<T>): Server\Continuation<T> $monitor
      */
     private function __construct(
@@ -27,7 +27,7 @@ final class Server
         private Protocol $protocol,
         private Address $address,
         private Period $timeout,
-        private Monoid_ $monoid,
+        private Monoid $monoid,
         private \Closure $monitor,
     ) {
     }
@@ -48,8 +48,8 @@ final class Server
             $protocol,
             $address,
             $timeout,
-            Monoid::sideEffect,
-            self::defaultMonitor(Monoid::sideEffect),
+            namespace\Monoid::sideEffect,
+            self::defaultMonitor(namespace\Monoid::sideEffect),
         );
     }
 
@@ -57,11 +57,11 @@ final class Server
      * @psalm-mutation-free
      * @template U
      *
-     * @param Monoid_<U> $monoid
+     * @param Monoid<U> $monoid
      *
      * @return self<U>
      */
-    public function sink(Monoid_ $monoid): self
+    public function sink(Monoid $monoid): self
     {
         return new self(
             $this->os,
@@ -120,11 +120,11 @@ final class Server
      * @psalm-pure
      * @template A
      *
-     * @param Monoid_<A> $monoid
+     * @param Monoid<A> $monoid
      *
      * @return \Closure(A, Server\Continuation<A>): Server\Continuation<A>
      */
-    private static function defaultMonitor(Monoid_ $monoid): \Closure
+    private static function defaultMonitor(Monoid $monoid): \Closure
     {
         return static fn($_, Server\Continuation $continuation) => $continuation;
     }
