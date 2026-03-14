@@ -46,6 +46,26 @@ return static function() {
     \sleep(1);
 
     yield test(
+        'Client connection timeout',
+        static function($assert) use ($os) {
+            $result = IPC::of(
+                $os,
+                $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+            )
+                ->connectTo(
+                    Process\Name::of('unknown'),
+                    Period::second(1),
+                )
+                ->match(
+                    static fn() => null,
+                    static fn($e) => $e->getMessage(),
+                );
+
+            $assert->same('Timeout', $result);
+        },
+    );
+
+    yield test(
         'Client wait timeout',
         static function($assert) use ($os) {
             $process = IPC::of(
