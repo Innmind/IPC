@@ -29,7 +29,7 @@ final class Unstarted
     {
         return $os
             ->sockets()
-            ->open($this->address)
+            ->takeOver($this->address)
             ->map(fn($server) => $server->timeoutAfter($this->timeout));
     }
 
