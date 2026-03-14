@@ -135,6 +135,58 @@ return static function() {
         },
     );
 
+    yield proof(
+        'Client listening for signals doesnt change behaviour',
+        given(
+            Set::strings()->between(1, 10),
+        ),
+        static function($assert, $message) use ($os) {
+            $process = IPC::of(
+                $os,
+                $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+            )
+                ->connectTo(
+                    Process\Name::of('server'),
+                    Period::second(1),
+                )
+                ->unwrap();
+
+            $assert->same(
+                SideEffect::identity,
+                $process->listenSignals()->match(
+                    static fn($sideEffect) => $sideEffect,
+                    static fn() => null,
+                ),
+            );
+            $assert->same(
+                SideEffect::identity,
+                $process
+                    ->send(Sequence::of(Message::of(
+                        MediaType::from(TopLevel::text, 'plain'),
+                        Str::of($message),
+                    )))
+                    ->match(
+                        static fn($value) => $value,
+                        static fn() => null,
+                    ),
+            );
+            $assert->same(
+                'ack from server : '.$message,
+                $process
+                    ->wait()
+                    ->match(
+                        static fn($message) => $message->content()->toString(),
+                        static fn() => null,
+                    ),
+            );
+
+            $assert->true($process->close()->match(
+                static fn() => true,
+                static fn() => false,
+            ));
+        },
+    );
+
     yield test(
         'Processes',
         static function($assert) use ($os) {
