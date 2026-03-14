@@ -7,6 +7,7 @@ use Innmind\IPC\{
     Protocol,
     Continuation as Continuation_,
     Message,
+    Abort,
 };
 use Innmind\Async\Scope;
 use Innmind\OperatingSystem\OperatingSystem;
@@ -14,6 +15,7 @@ use Innmind\IO\Sockets\{
     Servers\Server,
     Unix\Address,
 };
+use Innmind\Signals\Signal;
 use Innmind\Time\Period;
 use Innmind\Immutable\{
     Attempt,
@@ -34,6 +36,7 @@ final class Instance
     private function __construct(
         private Server|Unstarted $server,
         private Protocol $protocol,
+        private Abort $abort,
         private Period $timeout,
         private Monoid $monoid,
         private \Closure $monitor,
@@ -59,12 +62,25 @@ final class Instance
 
                     return $server;
                 })
+                ->map(
+                    fn($server) => $os
+                        ->process()
+                        ->signals()
+                        ->listen(Signal::terminate, $this->abort)
+                        ->map(static fn() => $server),
+                )
                 ->match(
                     static fn() => $continuation,
                     static fn($e) => $continuation
                         ->carryWith(Attempt::error($e))
                         ->finish(),
                 );
+        }
+
+        if ($this->abort->enabled()) {
+            return $continuation
+                ->carryWith(Attempt::error(new \RuntimeException('Server signaled to terminate')))
+                ->terminate();
         }
 
         /** @var Sequence<T> */
@@ -118,6 +134,7 @@ final class Instance
                 $timeout,
             ),
             $protocol,
+            Abort::disabled(),
             $timeout,
             $monoid,
             $monitor,
