@@ -182,9 +182,17 @@ final class Client
         return $listen($message, Continuation::new($identity), $identity)->match(
             static fn($carry, $messages) => $pipe
                 ->send($messages)
+                ->mapError(static fn($e) => match (true) {
+                    $e instanceof ConnectionProperlyClosed => new Stop($carry),
+                    default => $e,
+                })
                 ->map(static fn(): mixed => $carry),
             static fn($carry, $messages) => $pipe
                 ->send($messages)
+                ->mapError(static fn($e) => match (true) {
+                    $e instanceof ConnectionProperlyClosed => new Stop($carry),
+                    default => $e,
+                })
                 ->flatMap(static fn() => Attempt::error(new Stop($carry))),
         );
     }

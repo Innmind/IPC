@@ -36,31 +36,32 @@ return static function() {
                 )
                 ->unwrap();
 
-            $result = IPC::of(
+            $output = IPC::of(
                 $os,
                 $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
             )
                 ->serve(Process\Name::of('server'))
-                ->monitor(static fn($_, $continuation) => $continuation->finish())
-                ->with(static function($message, $continuation) use ($assert) {
-                    $assert->same(
-                        'hello world',
-                        $message->content()->toString(),
-                    );
-
-                    return $continuation
+                ->sink(Concat::monoid)
+                ->monitor(
+                    static fn($result, $continuation) => $continuation
+                        ->carryWith($result)
+                        ->finish(),
+                )
+                ->with(
+                    static fn($message, $continuation) => $continuation
+                        ->carryWith($message->content())
                         ->respond(Message::of(
                             MediaType::from(TopLevel::text, 'plain'),
                             Str::of('some output'),
                         ))
-                        ->finish();
-                })
+                        ->finish(),
+                )
                 ->match(
-                    static fn() => true,
-                    static fn() => false,
+                    static fn($output) => $output->toString(),
+                    static fn() => null,
                 );
 
-            $assert->true($result);
+            $assert->same('hello world', $output);
             $assert->same(
                 'some output',
                 $process
