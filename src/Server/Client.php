@@ -51,6 +51,7 @@ final class Client
         $identity = $this->monoid->identity();
         $abort = $this->abort;
         $enable = $this->abort->enable(...);
+        $listen = $this->listen;
 
         $handshaked = $os
             ->process()
@@ -83,16 +84,17 @@ final class Client
         })
             ->sink($identity)
             ->attempt(
-                fn($identity, $val) => match (true) {
+                static fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $pipe
                         ->wait($abort)
                         ->flatMap(
-                            fn($message) => $pipe
+                            static fn($message) => $pipe
                                 ->send(Sequence::of(Message::ack()))
                                 ->flatMap(
                                     /** @psalm-suppress MixedArgument Don't know why it loses the type */
-                                    fn() => $this->handle(
+                                    static fn() => self::handle(
+                                        $listen,
                                         $pipe,
                                         $identity,
                                         $message,
@@ -157,16 +159,20 @@ final class Client
     }
 
     /**
-     * @param T $identity
+     * @template A
      *
-     * @return Attempt<T>
+     * @param \Closure(Message, Continuation<A>, A): Continuation<A> $listen
+     * @param A $identity
+     *
+     * @return Attempt<A>
      */
-    private function handle(
+    private static function handle(
+        \Closure $listen,
         Pipe $pipe,
         mixed $identity,
         Message $message,
     ): Attempt {
-        return ($this->listen)($message, Continuation::new($identity), $identity)->match(
+        return $listen($message, Continuation::new($identity), $identity)->match(
             static fn($carry, $messages) => $pipe
                 ->send($messages)
                 ->map(static fn(): mixed => $carry),
