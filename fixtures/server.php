@@ -14,7 +14,6 @@ use Innmind\MediaType\{
     MediaType,
     TopLevel,
 };
-use Innmind\Immutable\Str;
 
 echo 'starting';
 $os = OperatingSystem::new();
@@ -24,11 +23,9 @@ $_ = IPC::of(
 )
     ->serve(Process\Name::of('server'))
     ->with(static function($message, $continuation) {
-        \sleep((int) $message->content()->toString());
-
         return $continuation->respond(Message::of(
             MediaType::from(TopLevel::text, 'plain'),
-            Str::of('ack'),
+            $message->content()->prepend('ack from server : '),
         ));
     })
     ->unwrap();

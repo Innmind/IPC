@@ -4,14 +4,24 @@ declare(strict_types = 1);
 use Innmind\IPC\{
     IPC,
     Process,
+    Message,
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Server\Control\Server\{
     Command,
     Signal,
 };
+use Innmind\MediaType\{
+    MediaType,
+    TopLevel,
+};
 use Innmind\Url\Path;
 use Innmind\Time\Period;
+use Innmind\Immutable\{
+    Str,
+    Sequence,
+    SideEffect,
+};
 
 return static function() {
     $os = OperatingSystem::new();
@@ -51,6 +61,48 @@ return static function() {
                 static fn() => true,
                 static fn() => false,
             ));
+
+            $assert->true($process->close()->match(
+                static fn() => true,
+                static fn() => false,
+            ));
+        },
+    );
+
+    yield test(
+        'Client wait for message',
+        static function($assert) use ($os) {
+            $process = IPC::of(
+                $os,
+                $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+            )
+                ->connectTo(
+                    Process\Name::of('server'),
+                    Period::second(1),
+                )
+                ->unwrap();
+
+            $assert->same(
+                SideEffect::identity,
+                $process
+                    ->send(Sequence::of(Message::of(
+                        MediaType::from(TopLevel::text, 'plain'),
+                        Str::of('1'),
+                    )))
+                    ->match(
+                        static fn($value) => $value,
+                        static fn() => null,
+                    ),
+            );
+            $assert->same(
+                'ack from server : 1',
+                $process
+                    ->wait()
+                    ->match(
+                        static fn($message) => $message->content()->toString(),
+                        static fn() => null,
+                    ),
+            );
 
             $assert->true($process->close()->match(
                 static fn() => true,

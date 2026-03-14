@@ -91,7 +91,7 @@ final class Client
                         ->wait()
                         ->flatMap(
                             static fn($message) => $pipe
-                                ->send(Sequence::of(Message::ack()))
+                                ->signal(Message::ack())
                                 ->flatMap(
                                     /** @psalm-suppress MixedArgument Don't know why it loses the type */
                                     static fn() => self::handle(
