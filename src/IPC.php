@@ -58,8 +58,15 @@ final class IPC
             ->filesystem
             ->root()
             ->all()
+            ->map(
+                static fn($file) => $file
+                    ->name()
+                    ->str()
+                    ->dropEnd(5)
+                    ->toString(),
+            )
             ->flatMap(
-                static fn($file) => Process\Name::attempt($file->name()->toString())
+                static fn($file) => Process\Name::attempt($file)
                     ->maybe()
                     ->toSequence(),
             );
@@ -72,7 +79,7 @@ final class IPC
         Process\Name $name,
         ?Period $timeout = null,
     ): Attempt {
-        $file = FileName::of($name->toString());
+        $file = FileName::of($name->toString().'.sock');
         $start = $this->os->clock()->now();
 
         return Sequence::lazy(function() use ($file) {
