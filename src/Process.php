@@ -94,7 +94,7 @@ final class Process
             ->os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, $this->abort->enable(...));
+            ->listen(Signal::terminate, $this->abort);
     }
 
     /**

@@ -50,7 +50,7 @@ final class Pipe
                 ->socket
                 ->heartbeatWith(static fn() => Sequence::of($heartbeat))
                 ->abortWhen(function() use ($abort, $start, $timeout) {
-                    if ($abort()) {
+                    if ($abort->enabled()) {
                         return true;
                     }
 

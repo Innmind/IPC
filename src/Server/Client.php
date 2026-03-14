@@ -50,13 +50,12 @@ final class Client
         );
         $identity = $this->monoid->identity();
         $abort = $this->abort;
-        $enable = $this->abort->enable(...);
         $listen = $this->listen;
 
         $handshaked = $os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, $enable)
+            ->listen(Signal::terminate, $abort)
             ->flatMap(static fn() => $pipe->send(
                 Sequence::of(Message::connectionStart()),
             ))
@@ -125,12 +124,12 @@ final class Client
                 static fn($value) => $os
                     ->process()
                     ->signals()
-                    ->remove($enable)
+                    ->remove($abort)
                     ->map(static fn(): mixed => $value),
                 static fn($e) => $os
                     ->process()
                     ->signals()
-                    ->remove($enable)
+                    ->remove($abort)
                     ->flatMap(static fn() => Attempt::error($e)),
             );
     }

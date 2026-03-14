@@ -3,6 +3,11 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
+use Innmind\Signals\{
+    Signal,
+    Info,
+};
+
 final class Abort
 {
     private function __construct(
@@ -10,9 +15,9 @@ final class Abort
     ) {
     }
 
-    public function __invoke(): bool
+    public function __invoke(Signal $signal, Info $info): void
     {
-        return $this->value;
+        $this->value = true;
     }
 
     public static function disabled(): self
@@ -20,8 +25,8 @@ final class Abort
         return new self;
     }
 
-    public function enable(): void
+    public function enabled(): bool
     {
-        $this->value = true;
+        return $this->value;
     }
 }
