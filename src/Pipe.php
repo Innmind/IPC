@@ -96,8 +96,12 @@ final class Pipe
      *
      * @return Attempt<SideEffect>
      */
-    public function send(Sequence $messages): Attempt
-    {
+    public function send(
+        Abort $abort,
+        Sequence $messages,
+    ): Attempt {
+        $socket = $this->socket->abortWhen(static fn() => $abort->enabled());
+
         return $messages
             ->sink(SideEffect::identity)
             ->attempt(
@@ -105,8 +109,8 @@ final class Pipe
                     ->protocol
                     ->encode($message)
                     ->map(Sequence::of(...))
-                    ->flatMap($this->socket->sink(...))
-                    ->flatMap(fn() => $this->wait(Abort::disabled()))
+                    ->flatMap($socket->sink(...))
+                    ->flatMap(fn() => $this->wait($abort))
                     ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
                         true => Attempt::result(SideEffect::identity),
                         false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),

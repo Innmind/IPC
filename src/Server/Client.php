@@ -57,6 +57,7 @@ final class Client
             ->signals()
             ->listen(Signal::terminate, $abort)
             ->flatMap(static fn() => $pipe->send(
+                $abort,
                 Sequence::of(Message::connectionStart()),
             ))
             ->flatMap(static fn() => $pipe->wait($abort))
@@ -89,11 +90,15 @@ final class Client
                         ->wait($abort)
                         ->flatMap(
                             static fn($message) => $pipe
-                                ->send(Sequence::of(Message::ack()))
+                                ->send(
+                                    $abort,
+                                    Sequence::of(Message::ack()),
+                                )
                                 ->flatMap(
                                     /** @psalm-suppress MixedArgument Don't know why it loses the type */
                                     static fn() => self::handle(
                                         $listen,
+                                        $abort,
                                         $pipe,
                                         $identity,
                                         $message,
@@ -167,16 +172,17 @@ final class Client
      */
     private static function handle(
         \Closure $listen,
+        Abort $abort,
         Pipe $pipe,
         mixed $identity,
         Message $message,
     ): Attempt {
         return $listen($message, Continuation::new($identity), $identity)->match(
             static fn($carry, $messages) => $pipe
-                ->send($messages)
+                ->send($abort, $messages)
                 ->map(static fn(): mixed => $carry),
             static fn($carry, $messages) => $pipe
-                ->send($messages)
+                ->send($abort, $messages)
                 ->flatMap(static fn() => Attempt::error(new Stop($carry))),
         );
     }

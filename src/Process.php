@@ -71,7 +71,10 @@ final class Process
      */
     public function send(Sequence $messages): Attempt
     {
-        return $this->pipe->send($messages);
+        return $this->pipe->send(
+            $this->abort,
+            $messages,
+        );
     }
 
     /**
