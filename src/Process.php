@@ -3,15 +3,13 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
-use Innmind\OperatingSystem\Sockets;
+use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\IO\Sockets\{
     Clients\Client,
     Unix\Address,
 };
-use Innmind\Time\{
-    Clock,
-    Period,
-};
+use Innmind\Signals\Signal;
+use Innmind\Time\Period;
 use Innmind\Immutable\{
     Sequence,
     Attempt,
@@ -21,6 +19,7 @@ use Innmind\Immutable\{
 final class Process
 {
     private function __construct(
+        private OperatingSystem $os,
         private Client $socket,
         private Pipe $pipe,
         private Abort $abort,
@@ -31,21 +30,22 @@ final class Process
      * @return Attempt<self>
      */
     public static function of(
-        Sockets $sockets,
+        OperatingSystem $os,
         Protocol $protocol,
-        Clock $clock,
         Address $address,
         Period $timeout,
     ): Attempt {
-        return $sockets
+        return $os
+            ->sockets()
             ->connectTo($address)
             ->map(static fn($client) => $client->timeoutAfter($timeout))
             ->map(static fn($client) => new self(
+                $os,
                 $client,
                 Pipe::of(
                     $client,
                     $protocol,
-                    $clock,
+                    $os->clock(),
                 ),
                 Abort::disabled(),
             ))
@@ -83,6 +83,18 @@ final class Process
             $this->abort,
             $timeout,
         );
+    }
+
+    /**
+     * @return Attempt<SideEffect>
+     */
+    public function listenSignals(): Attempt
+    {
+        return $this
+            ->os
+            ->process()
+            ->signals()
+            ->listen(Signal::terminate, $this->abort->enable(...));
     }
 
     /**

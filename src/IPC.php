@@ -94,9 +94,8 @@ final class IPC
                 },
             ))
             ->flatMap(fn() => Process::of(
-                $this->os->sockets(),
+                $this->os,
                 $this->protocol,
-                $this->os->clock(),
                 $this->addressOf($name),
                 $this->heartbeat,
             ));
