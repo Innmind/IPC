@@ -12,6 +12,7 @@ use Innmind\Immutable\{
     Sequence,
     Attempt,
     SideEffect,
+    Str,
 };
 
 /**
@@ -55,6 +56,7 @@ final class Pipe
         do {
             $result = $this
                 ->socket
+                ->toEncoding(Str\Encoding::ascii)
                 ->heartbeatWith(static fn() => Sequence::of($heartbeat))
                 ->abortWhen(function() use ($abort, $start, $timeout) {
                     if ($abort->enabled()) {
