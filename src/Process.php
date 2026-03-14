@@ -102,6 +102,22 @@ final class Process
      */
     public function close(): Attempt
     {
-        return $this->socket->close();
+        return $this
+            ->socket
+            ->close()
+            ->eitherWay(
+                fn($value) => $this
+                    ->os
+                    ->process()
+                    ->signals()
+                    ->remove($this->abort)
+                    ->map(static fn() => $value),
+                fn($e) => $this
+                    ->os
+                    ->process()
+                    ->signals()
+                    ->remove($this->abort)
+                    ->flatMap(static fn() => Attempt::error($e)),
+            );
     }
 }
