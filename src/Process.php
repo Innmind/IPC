@@ -74,6 +74,7 @@ final class Process
      *
      * @return Attempt<SideEffect>
      */
+    #[\NoDiscard]
     public function send(Sequence $messages): Attempt
     {
         return $this->pipe->send($messages);
@@ -82,6 +83,7 @@ final class Process
     /**
      * @return Attempt<Message>
      */
+    #[\NoDiscard]
     public function wait(?Period $timeout = null): Attempt
     {
         return $this->pipe->wait($timeout);
@@ -90,6 +92,7 @@ final class Process
     /**
      * @return Attempt<SideEffect>
      */
+    #[\NoDiscard]
     public function listenSignals(): Attempt
     {
         return $this
@@ -102,6 +105,7 @@ final class Process
     /**
      * @return Attempt<SideEffect>
      */
+    #[\NoDiscard]
     public function close(): Attempt
     {
         return $this

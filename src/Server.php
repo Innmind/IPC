@@ -107,6 +107,7 @@ final class Server
      *
      * @return Attempt<T>
      */
+    #[\NoDiscard]
     public function with(callable $listen): Attempt
     {
         return Scheduler::of($this->os)
