@@ -110,8 +110,20 @@ final class Process
     public function close(): Attempt
     {
         return $this
-            ->socket
-            ->close()
+            ->pipe
+            ->signal(Message::connectionClose())
+            ->flatMap(fn() => $this->pipe->wait())
+            ->flatMap(static fn($message) => match ($message->equals(Message::connectionCloseOk())) {
+                true => Attempt::result(SideEffect::identity),
+                false => Attempt::error(new \RuntimeException('Connection handshake failure')),
+            })
+            ->eitherWay(
+                fn() => $this->socket->close(),
+                fn($e) => $this
+                    ->socket
+                    ->close()
+                    ->flatMap(static fn() => Attempt::error($e)),
+            )
             ->eitherWay(
                 fn($value) => $this
                     ->os
