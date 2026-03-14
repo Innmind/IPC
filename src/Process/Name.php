@@ -8,6 +8,9 @@ use Innmind\Immutable\{
     Attempt,
 };
 
+/**
+ * @psalm-immutable
+ */
 final class Name
 {
     /**
@@ -18,6 +21,8 @@ final class Name
     }
 
     /**
+     * @psalm-pure
+     *
      * @param literal-string $value
      *
      * @throws \DomainException
@@ -28,6 +33,8 @@ final class Name
     }
 
     /**
+     * @psalm-pure
+     *
      * @return Attempt<self>
      */
     public static function attempt(string $value): Attempt

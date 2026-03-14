@@ -12,6 +12,7 @@ use Innmind\Immutable\Str;
 
 /**
  * @internal
+ * @psalm-immutable
  */
 enum Protocol implements Implementation
 {

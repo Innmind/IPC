@@ -12,6 +12,7 @@ use Innmind\Immutable\{
 
 /**
  * @internal
+ * @psalm-immutable
  */
 final class Protocol
 {
@@ -25,6 +26,7 @@ final class Protocol
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function binary(): self
     {
@@ -128,6 +130,9 @@ final class Protocol
         return $this->frame;
     }
 
+    /**
+     * @psalm-pure
+     */
     private static function end(): int
     {
         return 0xCE;

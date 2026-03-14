@@ -8,6 +8,7 @@ use Innmind\Immutable\Str;
 
 /**
  * @internal
+ * @psalm-immutable
  */
 interface Implementation
 {

@@ -8,6 +8,7 @@ use Innmind\Immutable\Str;
 
 /**
  * @internal
+ * @psalm-immutable
  */
 final class Generic implements Implementation
 {

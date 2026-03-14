@@ -5,6 +5,7 @@ namespace Innmind\IPC\Continuation;
 
 /**
  * @internal
+ * @psalm-immutable
  */
 enum Next
 {

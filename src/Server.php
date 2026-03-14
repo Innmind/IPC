@@ -19,6 +19,8 @@ use Innmind\Immutable\{
 final class Server
 {
     /**
+     * @psalm-mutation-free
+     *
      * @param Monoid<T> $monoid
      * @param \Closure(T, Server\Continuation<T>): Server\Continuation<T> $monitor
      */
@@ -34,6 +36,7 @@ final class Server
 
     /**
      * @internal
+     * @psalm-pure
      *
      * @return self<SideEffect>
      */
@@ -74,6 +77,8 @@ final class Server
     }
 
     /**
+     * @psalm-mutation-free
+     *
      * @param callable(T, Server\Continuation<T>): Server\Continuation<T> $monitor
      *
      * @return self<T>

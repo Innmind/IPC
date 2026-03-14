@@ -102,6 +102,8 @@ final class IPC
     }
 
     /**
+     * @psalm-mutation-free
+     *
      * @return Server<SideEffect>
      */
     public function serve(Process\Name $name): Server
@@ -114,6 +116,9 @@ final class IPC
         );
     }
 
+    /**
+     * @psalm-mutation-free
+     */
     private function addressOf(Process\Name $name): Address
     {
         return Address::of(

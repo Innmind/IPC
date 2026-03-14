@@ -11,6 +11,9 @@ use Innmind\IPC\Message\{
 use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
+/**
+ * @psalm-immutable
+ */
 final class Message
 {
     private function __construct(
@@ -18,6 +21,9 @@ final class Message
     ) {
     }
 
+    /**
+     * @psalm-pure
+     */
     public static function of(MediaType $mediaType, Str $content): self
     {
         return new self(new Generic($mediaType, $content));
@@ -25,6 +31,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function connectionStart(): self
     {
@@ -33,6 +40,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function connectionStartOk(): self
     {
@@ -41,6 +49,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function connectionClose(): self
     {
@@ -49,6 +58,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function connectionCloseOk(): self
     {
@@ -57,6 +67,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function heartbeat(): self
     {
@@ -65,6 +76,7 @@ final class Message
 
     /**
      * @internal
+     * @psalm-pure
      */
     public static function ack(): self
     {
