@@ -20,6 +20,7 @@ final class Pipe
         private Client $socket,
         private Protocol $protocol,
         private Clock $clock,
+        private Abort $abort,
     ) {
     }
 
@@ -27,17 +28,17 @@ final class Pipe
         Client $socket,
         Protocol $protocol,
         Clock $clock,
+        Abort $abort,
     ): self {
-        return new self($socket, $protocol, $clock);
+        return new self($socket, $protocol, $clock, $abort);
     }
 
     /**
      * @return Attempt<Message>
      */
-    public function wait(
-        Abort $abort,
-        ?Period $timeout = null,
-    ): Attempt {
+    public function wait(?Period $timeout = null): Attempt
+    {
+        $abort = $this->abort;
         $start = $this->clock->now();
         // It's safe to unwrap as it's an internal message that never fails
         $heartbeat = $this
@@ -96,11 +97,9 @@ final class Pipe
      *
      * @return Attempt<SideEffect>
      */
-    public function send(
-        Abort $abort,
-        Sequence $messages,
-    ): Attempt {
-        $socket = $this->socket->abortWhen(static fn() => $abort->enabled());
+    public function send(Sequence $messages): Attempt
+    {
+        $socket = $this->socket->abortWhen($this->abort->enabled(...));
 
         return $messages
             ->sink(SideEffect::identity)
@@ -110,7 +109,7 @@ final class Pipe
                     ->encode($message)
                     ->map(Sequence::of(...))
                     ->flatMap($socket->sink(...))
-                    ->flatMap(fn() => $this->wait($abort))
+                    ->flatMap(fn() => $this->wait())
                     ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
                         true => Attempt::result(SideEffect::identity),
                         false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),

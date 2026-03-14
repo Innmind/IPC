@@ -35,6 +35,8 @@ final class Process
         Address $address,
         Period $timeout,
     ): Attempt {
+        $abort = Abort::disabled();
+
         return $os
             ->sockets()
             ->connectTo($address)
@@ -46,8 +48,9 @@ final class Process
                     $client,
                     $protocol,
                     $os->clock(),
+                    $abort,
                 ),
-                Abort::disabled(),
+                $abort,
             ))
             ->flatMap(
                 static fn($self) => $self
@@ -71,10 +74,7 @@ final class Process
      */
     public function send(Sequence $messages): Attempt
     {
-        return $this->pipe->send(
-            $this->abort,
-            $messages,
-        );
+        return $this->pipe->send($messages);
     }
 
     /**
@@ -82,10 +82,7 @@ final class Process
      */
     public function wait(?Period $timeout = null): Attempt
     {
-        return $this->pipe->wait(
-            $this->abort,
-            $timeout,
-        );
+        return $this->pipe->wait($timeout);
     }
 
     /**

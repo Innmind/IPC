@@ -47,20 +47,19 @@ final class Client
             $this->client,
             $this->protocol,
             $os->clock(),
+            $this->abort,
         );
         $identity = $this->monoid->identity();
-        $abort = $this->abort;
         $listen = $this->listen;
 
         $handshaked = $os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, $abort)
+            ->listen(Signal::terminate, $this->abort)
             ->flatMap(static fn() => $pipe->send(
-                $abort,
                 Sequence::of(Message::connectionStart()),
             ))
-            ->flatMap(static fn() => $pipe->wait($abort))
+            ->flatMap(static fn() => $pipe->wait())
             ->flatMap(static fn($message) => match ($message->equals(Message::connectionStartOk())) {
                 true => Attempt::result($identity),
                 false => Attempt::error(new \RuntimeException('Connection handshake failure')),
@@ -87,18 +86,14 @@ final class Client
                 static fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $pipe
-                        ->wait($abort)
+                        ->wait()
                         ->flatMap(
                             static fn($message) => $pipe
-                                ->send(
-                                    $abort,
-                                    Sequence::of(Message::ack()),
-                                )
+                                ->send(Sequence::of(Message::ack()))
                                 ->flatMap(
                                     /** @psalm-suppress MixedArgument Don't know why it loses the type */
                                     static fn() => self::handle(
                                         $listen,
-                                        $abort,
                                         $pipe,
                                         $identity,
                                         $message,
@@ -126,15 +121,15 @@ final class Client
                 },
             )
             ->eitherWay(
-                static fn($value) => $os
+                fn($value) => $os
                     ->process()
                     ->signals()
-                    ->remove($abort)
+                    ->remove($this->abort)
                     ->map(static fn(): mixed => $value),
-                static fn($e) => $os
+                fn($e) => $os
                     ->process()
                     ->signals()
-                    ->remove($abort)
+                    ->remove($this->abort)
                     ->flatMap(static fn() => Attempt::error($e)),
             );
     }
@@ -172,17 +167,16 @@ final class Client
      */
     private static function handle(
         \Closure $listen,
-        Abort $abort,
         Pipe $pipe,
         mixed $identity,
         Message $message,
     ): Attempt {
         return $listen($message, Continuation::new($identity), $identity)->match(
             static fn($carry, $messages) => $pipe
-                ->send($abort, $messages)
+                ->send($messages)
                 ->map(static fn(): mixed => $carry),
             static fn($carry, $messages) => $pipe
-                ->send($abort, $messages)
+                ->send($messages)
                 ->flatMap(static fn() => Attempt::error(new Stop($carry))),
         );
     }
