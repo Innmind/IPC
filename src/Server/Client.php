@@ -10,6 +10,7 @@ use Innmind\IPC\{
     Server\Client\Stop,
     Pipe,
     Abort,
+    Exception\ConnectionProperlyClosed,
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Signals\Signal;
@@ -100,12 +101,17 @@ final class Client
                                         $message,
                                     ),
                                 ),
-                        ),
+                        )
+                        ->mapError(static fn($e) => match (true) {
+                            $e instanceof ConnectionProperlyClosed => $e->with($identity),
+                            default => $e,
+                        }),
                 },
             )
             ->recover(
                 fn($e) => match (true) {
-                    $e instanceof Stop => $this
+                    $e instanceof Stop,
+                    $e instanceof ConnectionProperlyClosed => $this
                         ->client
                         ->close()
                         ->match( // make sure to keep the user provided value

@@ -3,6 +3,7 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC;
 
+use Innmind\IPC\Exception\ConnectionProperlyClosed;
 use Innmind\IO\Sockets\Clients\Client;
 use Innmind\Time\{
     Clock,
@@ -92,9 +93,7 @@ final class Pipe
                 ->map(Sequence::of(...))
                 ->flatMap($this->socket->sink(...))
                 ->flatMap(fn() => $this->socket->close())
-                ->flatMap(static fn() => Attempt::error(new \RuntimeException(
-                    'Connection closed by the other side',
-                )));
+                ->flatMap(static fn() => Attempt::error(new ConnectionProperlyClosed));
         }
 
         return Attempt::result($result);
