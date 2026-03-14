@@ -80,36 +80,45 @@ final class IPC
         ?Period $timeout = null,
     ): Attempt {
         $file = FileName::of($name->toString().'.sock');
+        $name = $this->addressOf($name);
         $start = $this->os->clock()->now();
+        $timeout = $timeout?->asElapsedPeriod();
 
-        return Sequence::lazy(function() use ($file) {
-            while (!$this->filesystem->contains($file)) {
-                yield $this->os->clock()->now();
+        while (!$this->filesystem->contains($file)) {
+            $halted = $this
+                ->os
+                ->process()
+                ->halt($this->heartbeat)
+                ->match(
+                    static fn($sideEffect) => $sideEffect,
+                    static fn($e) => $e,
+                );
+
+            if ($halted !== SideEffect::identity) {
+                return Attempt::error($halted);
             }
-        })
-            ->map(
-                fn($now) => $this
-                    ->os
-                    ->process()
-                    ->halt($this->heartbeat)
-                    ->map(static fn() => $now->elapsedSince($start)),
-            )
-            ->sink(SideEffect::identity)
-            ->attempt(static fn($_, $halted) => $halted->flatMap(
-                static fn($elapsed) => match ($timeout) {
-                    null => Attempt::result($_),
-                    default => match ($elapsed->longerThan($timeout->asElapsedPeriod())) {
-                        true => Attempt::error(new \RuntimeException('Timeout')),
-                        false => Attempt::result($_),
-                    },
-                },
-            ))
-            ->flatMap(fn() => Process::of(
-                $this->os,
-                $this->protocol,
-                $this->addressOf($name),
-                $this->heartbeat,
-            ));
+
+            if (\is_null($timeout)) {
+                continue;
+            }
+
+            $elapsed = $this
+                ->os
+                ->clock()
+                ->now()
+                ->elapsedSince($start);
+
+            if ($elapsed->longerThan($timeout)) {
+                return Attempt::error(new \RuntimeException('Timeout'));
+            }
+        }
+
+        return Process::of(
+            $this->os,
+            $this->protocol,
+            $name,
+            $this->heartbeat,
+        );
     }
 
     /**
