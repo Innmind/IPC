@@ -32,12 +32,10 @@ final class Pipe
     }
 
     /**
-     * @param callable(): bool $abort
-     *
      * @return Attempt<Message>
      */
     public function wait(
-        callable $abort,
+        Abort $abort,
         ?Period $timeout = null,
     ): Attempt {
         $start = $this->clock->now();
@@ -108,7 +106,7 @@ final class Pipe
                     ->encode($message)
                     ->map(Sequence::of(...))
                     ->flatMap($this->socket->sink(...))
-                    ->flatMap(fn() => $this->wait(static fn() => false))
+                    ->flatMap(fn() => $this->wait(Abort::disabled()))
                     ->flatMap(static fn($message) => match ($message->equals(Message::ack())) {
                         true => Attempt::result(SideEffect::identity),
                         false => Attempt::error(new \RuntimeException('Was expecting a message acknowledgement')),

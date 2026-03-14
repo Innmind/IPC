@@ -23,6 +23,7 @@ final class Process
     private function __construct(
         private Client $socket,
         private Pipe $pipe,
+        private Abort $abort,
     ) {
     }
 
@@ -46,6 +47,7 @@ final class Process
                     $protocol,
                     $clock,
                 ),
+                Abort::disabled(),
             ))
             ->flatMap(
                 static fn($self) => $self
@@ -78,7 +80,7 @@ final class Process
     public function wait(?Period $timeout = null): Attempt
     {
         return $this->pipe->wait(
-            static fn() => false, // todo handle signals ?
+            $this->abort,
             $timeout,
         );
     }
