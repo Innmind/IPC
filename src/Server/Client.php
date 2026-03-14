@@ -9,6 +9,7 @@ use Innmind\IPC\{
     Continuation,
     Server\Client\Stop,
     Pipe,
+    Abort,
 };
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Signals\Signal;
@@ -33,7 +34,7 @@ final class Client
         private Protocol $protocol,
         private Monoid $monoid,
         private \Closure $listen,
-        private bool $abort = false,
+        private Abort $abort,
     ) {
     }
 
@@ -48,18 +49,17 @@ final class Client
             $os->clock(),
         );
         $identity = $this->monoid->identity();
+        $abort = $this->abort->enable(...);
 
         $handshaked = $os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, function() {
-                $this->abort = true;
-            })
+            ->listen(Signal::terminate, $abort)
             ->flatMap(static fn() => $pipe->send(
                 Sequence::of(Message::connectionStart()),
             ))
             ->flatMap(fn() => $pipe->wait(
-                fn() => $this->abort,
+                $this->abort,
             ))
             ->flatMap(static fn($message) => match ($message->equals(Message::connectionStartOk())) {
                 true => Attempt::result($identity),
@@ -87,7 +87,7 @@ final class Client
                 fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $pipe
-                        ->wait(fn() => $this->abort)
+                        ->wait($this->abort)
                         ->flatMap(
                             fn($message) => $pipe
                                 ->send(Sequence::of(Message::ack()))
@@ -119,6 +119,18 @@ final class Client
                             static fn() => Attempt::error($e),
                         ),
                 },
+            )
+            ->eitherWay(
+                static fn($value) => $os
+                    ->process()
+                    ->signals()
+                    ->remove($abort)
+                    ->map(static fn(): mixed => $value),
+                static fn($e) => $os
+                    ->process()
+                    ->signals()
+                    ->remove($abort)
+                    ->flatMap(static fn() => Attempt::error($e)),
             );
     }
 
@@ -136,7 +148,13 @@ final class Client
         Monoid $monoid,
         \Closure $listen,
     ): self {
-        return new self($client, $protocol, $monoid, $listen);
+        return new self(
+            $client,
+            $protocol,
+            $monoid,
+            $listen,
+            Abort::new(),
+        );
     }
 
     /**
