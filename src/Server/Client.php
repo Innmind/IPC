@@ -49,18 +49,17 @@ final class Client
             $os->clock(),
         );
         $identity = $this->monoid->identity();
-        $abort = $this->abort->enable(...);
+        $abort = $this->abort;
+        $enable = $this->abort->enable(...);
 
         $handshaked = $os
             ->process()
             ->signals()
-            ->listen(Signal::terminate, $abort)
+            ->listen(Signal::terminate, $enable)
             ->flatMap(static fn() => $pipe->send(
                 Sequence::of(Message::connectionStart()),
             ))
-            ->flatMap(fn() => $pipe->wait(
-                $this->abort,
-            ))
+            ->flatMap(static fn() => $pipe->wait($abort))
             ->flatMap(static fn($message) => match ($message->equals(Message::connectionStartOk())) {
                 true => Attempt::result($identity),
                 false => Attempt::error(new \RuntimeException('Connection handshake failure')),
@@ -87,7 +86,7 @@ final class Client
                 fn($identity, $val) => match (true) {
                     $val instanceof Attempt => $val,
                     default => $pipe
-                        ->wait($this->abort)
+                        ->wait($abort)
                         ->flatMap(
                             fn($message) => $pipe
                                 ->send(Sequence::of(Message::ack()))
@@ -124,12 +123,12 @@ final class Client
                 static fn($value) => $os
                     ->process()
                     ->signals()
-                    ->remove($abort)
+                    ->remove($enable)
                     ->map(static fn(): mixed => $value),
                 static fn($e) => $os
                     ->process()
                     ->signals()
-                    ->remove($abort)
+                    ->remove($enable)
                     ->flatMap(static fn() => Attempt::error($e)),
             );
     }
