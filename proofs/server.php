@@ -17,13 +17,17 @@ use Innmind\Immutable\{
     Str,
     Monoid\Concat,
 };
+use Innmind\BlackBox\Set;
 
 return static function() {
     $os = OperatingSystem::new();
 
-    yield test(
+    yield proof(
         'Server wait for client',
-        static function($assert) use ($os) {
+        given(
+            Set::strings()->between(1, 10),
+        ),
+        static function($assert, $response) use ($os) {
             $process = $os
                 ->control()
                 ->processes()
@@ -52,7 +56,7 @@ return static function() {
                         ->carryWith($message->content())
                         ->respond(Message::of(
                             MediaType::from(TopLevel::text, 'plain'),
-                            Str::of('some output'),
+                            Str::of($response),
                         ))
                         ->finish(),
                 )
@@ -63,7 +67,7 @@ return static function() {
 
             $assert->same('hello world', $output);
             $assert->same(
-                'some output',
+                $response,
                 $process
                     ->output()
                     ->map(static fn($chunk) => $chunk->data())

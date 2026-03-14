@@ -22,6 +22,7 @@ use Innmind\Immutable\{
     Sequence,
     SideEffect,
 };
+use Innmind\BlackBox\Set;
 
 return static function() {
     $os = OperatingSystem::new();
@@ -69,9 +70,12 @@ return static function() {
         },
     );
 
-    yield test(
+    yield proof(
         'Client wait for message',
-        static function($assert) use ($os) {
+        given(
+            Set::strings()->between(1, 10),
+        ),
+        static function($assert, $message) use ($os) {
             $process = IPC::of(
                 $os,
                 $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
@@ -87,7 +91,7 @@ return static function() {
                 $process
                     ->send(Sequence::of(Message::of(
                         MediaType::from(TopLevel::text, 'plain'),
-                        Str::of('1'),
+                        Str::of($message),
                     )))
                     ->match(
                         static fn($value) => $value,
@@ -95,7 +99,7 @@ return static function() {
                     ),
             );
             $assert->same(
-                'ack from server : 1',
+                'ack from server : '.$message,
                 $process
                     ->wait()
                     ->match(
