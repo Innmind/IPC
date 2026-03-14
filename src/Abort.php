@@ -8,6 +8,9 @@ use Innmind\Signals\{
     Info,
 };
 
+/**
+ * @internal
+ */
 final class Abort
 {
     private function __construct(
@@ -20,6 +23,9 @@ final class Abort
         $this->value = true;
     }
 
+    /**
+     * @internal
+     */
     public static function disabled(): self
     {
         return new self;

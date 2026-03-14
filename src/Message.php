@@ -23,31 +23,49 @@ final class Message
         return new self(new Generic($mediaType, $content));
     }
 
+    /**
+     * @internal
+     */
     public static function connectionStart(): self
     {
         return new self(Protocol::connectionStart);
     }
 
+    /**
+     * @internal
+     */
     public static function connectionStartOk(): self
     {
         return new self(Protocol::connectionStartOk);
     }
 
+    /**
+     * @internal
+     */
     public static function connectionClose(): self
     {
         return new self(Protocol::connectionClose);
     }
 
+    /**
+     * @internal
+     */
     public static function connectionCloseOk(): self
     {
         return new self(Protocol::connectionCloseOk);
     }
 
+    /**
+     * @internal
+     */
     public static function heartbeat(): self
     {
         return new self(Protocol::heartbeat);
     }
 
+    /**
+     * @internal
+     */
     public static function ack(): self
     {
         return new self(Protocol::ack);

@@ -9,6 +9,7 @@ use Innmind\Immutable\{
 };
 
 /**
+ * @internal
  * @psalm-immutable
  * @implements Monoid_<SideEffect>
  */

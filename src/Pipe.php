@@ -14,6 +14,9 @@ use Innmind\Immutable\{
     SideEffect,
 };
 
+/**
+ * @internal
+ */
 final class Pipe
 {
     private function __construct(
@@ -24,6 +27,9 @@ final class Pipe
     ) {
     }
 
+    /**
+     * @internal
+     */
     public static function of(
         Client $socket,
         Protocol $protocol,

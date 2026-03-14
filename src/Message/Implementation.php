@@ -6,6 +6,9 @@ namespace Innmind\IPC\Message;
 use Innmind\MediaType\MediaType;
 use Innmind\Immutable\Str;
 
+/**
+ * @internal
+ */
 interface Implementation
 {
     public function mediaType(): MediaType;

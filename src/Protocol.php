@@ -10,6 +10,9 @@ use Innmind\Immutable\{
     Attempt,
 };
 
+/**
+ * @internal
+ */
 final class Protocol
 {
     /**
@@ -20,6 +23,9 @@ final class Protocol
     ) {
     }
 
+    /**
+     * @internal
+     */
     public static function binary(): self
     {
         $frame = Frame::chunk(2)

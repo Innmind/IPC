@@ -10,6 +10,9 @@ use Innmind\MediaType\{
 };
 use Innmind\Immutable\Str;
 
+/**
+ * @internal
+ */
 enum Protocol implements Implementation
 {
     case connectionStart;
@@ -19,6 +22,9 @@ enum Protocol implements Implementation
     case heartbeat;
     case ack;
 
+    /**
+     * @internal
+     */
     public static function parse(Str $content): ?self
     {
         foreach (self::cases() as $case) {

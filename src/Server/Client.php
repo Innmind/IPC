@@ -22,6 +22,7 @@ use Innmind\Immutable\{
 
 /**
  * @template T
+ * @internal
  */
 final class Client
 {
@@ -135,6 +136,7 @@ final class Client
     }
 
     /**
+     * @internal
      * @template A
      *
      * @param Monoid<A> $monoid

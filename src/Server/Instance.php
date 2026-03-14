@@ -24,6 +24,7 @@ use Innmind\Immutable\{
 };
 
 /**
+ * @internal
  * @template T
  */
 final class Instance
@@ -112,6 +113,7 @@ final class Instance
     }
 
     /**
+     * @internal
      * @template A
      *
      * @param Monoid<A> $monoid

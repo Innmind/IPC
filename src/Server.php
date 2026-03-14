@@ -33,6 +33,8 @@ final class Server
     }
 
     /**
+     * @internal
+     *
      * @return self<SideEffect>
      */
     public static function of(

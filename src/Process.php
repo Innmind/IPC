@@ -27,6 +27,8 @@ final class Process
     }
 
     /**
+     * @internal
+     *
      * @return Attempt<self>
      */
     public static function of(

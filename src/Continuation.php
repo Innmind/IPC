@@ -24,6 +24,7 @@ final class Continuation
     }
 
     /**
+     * @internal
      * @psalm-pure
      * @template A
      *
@@ -85,6 +86,7 @@ final class Continuation
     }
 
     /**
+     * @internal
      * @template R
      *
      * @param callable(T, Sequence<Message>): R $continue

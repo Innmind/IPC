@@ -11,6 +11,9 @@ use Innmind\IO\Sockets\{
 use Innmind\Time\Period;
 use Innmind\Immutable\Attempt;
 
+/**
+ * @internal
+ */
 final class Unstarted
 {
     private function __construct(
@@ -30,6 +33,9 @@ final class Unstarted
             ->map(fn($server) => $server->timeoutAfter($this->timeout));
     }
 
+    /**
+     * @internal
+     */
     public static function of(
         Address $address,
         Period $timeout,
