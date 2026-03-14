@@ -115,6 +115,24 @@ return static function() {
         },
     );
 
+    yield test(
+        'Processes',
+        static function($assert) use ($os) {
+            $processes = IPC::of(
+                $os,
+                $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+            )
+                ->processes()
+                ->map(static fn($name) => $name->toString())
+                ->toList();
+
+            $assert->same(
+                ['server'],
+                $processes,
+            );
+        },
+    );
+
     $_ = $process->pid()->match(
         static fn($pid) => $os
             ->control()
