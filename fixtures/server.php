@@ -16,6 +16,7 @@ use Innmind\MediaType\{
 };
 use Innmind\Immutable\Str;
 
+echo 'starting';
 $os = OperatingSystem::new();
 $_ = IPC::of(
     $os,
