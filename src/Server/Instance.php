@@ -95,6 +95,16 @@ final class Instance
             ->attempt(static fn($all, $result) => $result->map($all))
             ->map(fn($results) => $results->fold($this->monoid));
 
+        if ($continuation->results()->empty()) {
+            /** @psalm-suppress MixedArgument Don't know why it loses the type */
+            return $carry->match(
+                fn($carry) => $this->listen($carry, $continuation),
+                static fn() => $continuation
+                    ->carryWith($carry)
+                    ->terminate(),
+            );
+        }
+
         /** @psalm-suppress MixedArgument Don't know why it loses the type */
         return $carry->match(
             fn($carry) => ($this->monitor)($carry, Continuation::new($carry))->match(
