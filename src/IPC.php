@@ -30,9 +30,11 @@ final class IPC
 
     public static function of(
         OperatingSystem $os,
-        Path $path,
+        ?Path $path = null,
         ?Period $heartbeat = null,
     ): self {
+        $path ??= $os->status()->tmp();
+
         return new self(
             $os,
             $os
