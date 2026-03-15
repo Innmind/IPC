@@ -95,13 +95,6 @@ final class Server
         );
     }
 
-    // todo differentiate a reducer for the server loop (aka the scheduler sink)
-    // and reducer that will operate on each connection
-    // the server loop must transform the initial carry as an initial carry
-    // dedicated for the connection reducer
-    // and there should be a way to fold the returned carry from all connections
-    // to a single value that will in the end be returned by the server
-
     /**
      * @param callable(Message, Continuation<T>, T): Continuation<T> $listen
      *
