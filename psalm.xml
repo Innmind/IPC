@@ -10,8 +10,12 @@
 >
     <projectFiles>
         <directory name="src" />
+        <directory name="fixtures" />
         <ignoreFiles>
             <directory name="vendor" />
         </ignoreFiles>
     </projectFiles>
+    <issueHandlers>
+        <UndefinedAttributeClass errorLevel="suppress" />
+    </issueHandlers>
 </psalm>

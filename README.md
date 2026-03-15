@@ -1,6 +1,6 @@
 # Inter-Process Communication (IPC)
 
-[![Build Status](https://github.com/Innmind/IPC/workflows/CI/badge.svg?branch=master)](https://github.com/Innmind/IPC/actions?query=workflow%3ACI)
+[![CI](https://github.com/Innmind/IPC/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Innmind/IPC/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Innmind/IPC/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/IPC)
 [![Type Coverage](https://shepherd.dev/github/Innmind/IPC/coverage.svg)](https://shepherd.dev/github/Innmind/IPC)
 
@@ -17,47 +17,87 @@ composer require innmind/ipc
 ```php
 # Process A
 use Innmind\IPC\{
-    Factory as IPC,
+    IPC,
     Process\Name,
+    Continuation,
+    Server,
+    Message,
 };
 use Innmind\OperatingSystem\Factory;
+use Innmind\Immutable\Monoid;
 
-$ipc = IPC::build(Factory::build());
-$counter = $ipc->listen(Name::of('a'))(0, static function($message, $continuation, $counter): void {
-    if ($counter === 42) {
-        return $continuation->stop($counter);
+/**
+ * @psalm-immutable
+ * @implements Monoid<int>
+ */
+final class Addition implements Monoid
+{
+    public function identity(): int
+    {
+        return 0;
     }
 
-    return $continuation->respond($counter + 1, $message);
-})->match(
-    static fn($counter) => $counter,
-    static fn() => throw new \RuntimeException('Unable to start the server'),
-);
+    public function combine(mixed $a, mixed $b): int
+    {
+        return $a + $b;
+    }
+}
+
+$ipc = IPC::build(Factory::build());
+$counter = $ipc
+    ->serve(Name::of('a'))
+    ->sink(new Addition)
+    ->monitor(static fn(int $counter, Server\Continuation $continuation) => match ($counter) {
+        42 => $continuation->finish(),
+        default => $continuation,
+    })
+    ->with(
+        static fn(Message $message, Continuation $continuation, int $counter) => $continuation
+            ->respond($message)
+            ->carryWith($counter + 1),
+    )
+    ->unwrap();
 // $counter will always be 42 in this case
 ```
 
 ```php
 # Process B
 use Innmind\IPC\{
-    Factory as IPC,
+    IPC,
+    Process,
     Process\Name,
-    Message\Generic as Message,
+    Message,
 };
 use Innmind\OperatingSystem\Factory;
-use Innmind\Immutable\Sequence;
+use Innmind\MediaType\{
+    MediaType,
+    TopLevel,
+};
+use Innmind\Immutable\{
+    Str,
+    Sequence,
+};
 
 $ipc = IPC::build(Factory::build());
 $server = Name::of('a');
-$ipc
-    ->wait(Name::of('a'))
-    ->flatMap(fn($process) => $process->send(Sequence::of(
-        Message::of('text/plain', 'hello world'),
-    )))
-    ->flatMap(fn($process) => $process->wait())
+$response = $ipc
+    ->connectTo($server)
+    ->flatMap(
+        static fn(Process $process) => $process
+            ->send(Sequence::of(
+                Message::of(
+                    MediaType::from(TopLevel::text, 'plain'),
+                    Str::of('hello world'),
+                ),
+            ))
+            ->map(static fn() => $process),
+    )
+    ->flatMap(fn(Process $process) => $process->wait())
     ->match(
-        static fn($message) => print('server responded '.$message->content()->toString()),
-        static fn() => print('no response from the server'),
+        static fn(Message $message) => 'server responded '.$message->content()->toString(),
+        static fn() => 'no response from the server',
     );
+print($message);
 ```
 
 The above example will result in the output `server responded hello world` in the process `B`.
