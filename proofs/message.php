@@ -8,32 +8,47 @@ use Innmind\BlackBox\Set;
 
 return static function() {
     yield proof(
-        'Message::equals()',
+        'Message::equals() depends on the media type',
         given(
             MediaType::any(),
             MediaType::any(),
             Set::strings()->map(Str::of(...)),
-            Set::strings()->map(Str::of(...)),
         ),
-        static function($assert, $mediaTypeA, $mediaTypeB, $a, $b) {
+        static function($assert, $mediaTypeA, $mediaTypeB, $content) {
             $assert->true(
-                Message::of($mediaTypeA, $a)->equals(
-                    Message::of($mediaTypeA, $a),
+                Message::of($mediaTypeA, $content)->equals(
+                    Message::of($mediaTypeA, $content),
                 ),
             );
             $assert->false(
-                Message::of($mediaTypeA, $a)->equals(
-                    Message::of($mediaTypeA, $b),
+                Message::of($mediaTypeA, $content)->equals(
+                    Message::of($mediaTypeB, $content),
+                ),
+            );
+        },
+    );
+
+    yield proof(
+        'Message::equals()',
+        given(
+            MediaType::any(),
+            Set::strings()->map(Str::of(...)),
+            Set::strings()->map(Str::of(...)),
+        )->filter(static fn($_, $a, $b) => !$a->equals($b)),
+        static function($assert, $mediaType, $a, $b) {
+            $assert->true(
+                Message::of($mediaType, $a)->equals(
+                    Message::of($mediaType, $a),
+                ),
+            );
+            $assert->true(
+                Message::of($mediaType, $b)->equals(
+                    Message::of($mediaType, $b),
                 ),
             );
             $assert->false(
-                Message::of($mediaTypeA, $a)->equals(
-                    Message::of($mediaTypeB, $a),
-                ),
-            );
-            $assert->false(
-                Message::of($mediaTypeA, $a)->equals(
-                    Message::of($mediaTypeB, $b),
+                Message::of($mediaType, $a)->equals(
+                    Message::of($mediaType, $b),
                 ),
             );
         },
