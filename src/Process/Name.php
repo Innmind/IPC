@@ -3,45 +3,53 @@ declare(strict_types = 1);
 
 namespace Innmind\IPC\Process;
 
-use Innmind\IPC\Exception\DomainException;
 use Innmind\Immutable\{
     Str,
-    Maybe,
+    Attempt,
 };
 
+/**
+ * @psalm-immutable
+ */
 final class Name
 {
-    private string $value;
-
-    private function __construct(string $value)
+    /**
+     * @param non-empty-string $value
+     */
+    private function __construct(private string $value)
     {
-        $this->value = $value;
     }
 
     /**
+     * @psalm-pure
+     *
      * @param literal-string $value
      *
-     * @throws DomainException
+     * @throws \DomainException
      */
     public static function of(string $value): self
     {
-        return self::maybe($value)->match(
-            static fn($self) => $self,
-            static fn() => throw new DomainException($value),
-        );
+        return self::attempt($value)->unwrap();
     }
 
     /**
-     * @return Maybe<self>
+     * @psalm-pure
+     *
+     * @return Attempt<self>
      */
-    public static function maybe(string $value): Maybe
+    public static function attempt(string $value): Attempt
     {
-        return Maybe::just($value)
-            ->map(Str::of(...))
-            ->filter(static fn($value) => $value->matches('~^[a-zA-Z0-9-_]+$~'))
-            ->map(static fn($value) => new self($value->toString()));
+        if (!Str::of($value)->matches('~^[a-zA-Z0-9-_]+$~')) {
+            return Attempt::error(new \DomainException($value));
+        }
+
+        /** @psalm-suppress ArgumentTypeCoercion */
+        return Attempt::result(new self($value));
     }
 
+    /**
+     * @return non-empty-string
+     */
     public function toString(): string
     {
         return $this->value;

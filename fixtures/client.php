@@ -1,47 +1,46 @@
 <?php
 declare(strict_types = 1);
 
+require __DIR__.'/../vendor/autoload.php';
+
 use Innmind\IPC\{
-    Factory as IPC,
+    IPC,
+    Process,
     Message,
-    Process\Name,
 };
-use Innmind\OperatingSystem\Factory;
-use Innmind\MediaType\MediaType;
+use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\Url\Path;
+use Innmind\MediaType\{
+    MediaType,
+    TopLevel,
+};
 use Innmind\Immutable\{
     Str,
-    Maybe,
     Sequence,
 };
 
-require __DIR__.'/../vendor/autoload.php';
-
-$os = Factory::build();
-$ipc = IPC::build($os);
-$process = $ipc->wait(Name::of('server'))->match(
-    static fn($process) => $process,
-    static fn() => null,
-);
-$process->send(Sequence::of(new Message\Generic(
-    MediaType::of('text/plain'),
-    Str::of('hello world')
-)));
-$_ = $process
-    ->wait()
+$os = OperatingSystem::new();
+$message = IPC::of(
+    $os,
+    $os->status()->tmp()->resolve(Path::of('innnmind/ipc/')),
+)
+    ->connectTo(Process\Name::of('server'))
     ->flatMap(
-        static fn($message) => $process
-            ->send(Sequence::of(new Message\Generic(
-                MediaType::of('text/plain'),
-                Str::of('stop')
+        static fn($process) => $process
+            ->send(Sequence::of(Message::of(
+                MediaType::from(TopLevel::text, 'plain'),
+                Str::of('hello world'),
             )))
-            ->map(static fn() => $message),
+            ->map(static fn() => $process),
     )
     ->flatMap(
-        static fn($message) => $process
-            ->wait() // wait for server termination
-            ->otherwise(static fn() => Maybe::just($message)),
+        static fn($process) => $process
+            ->wait()
+            ->flatMap(
+                static fn($message) => $process
+                    ->close()
+                    ->map(static fn() => $message),
+            ),
     )
-    ->match(
-        static fn($message) => print($message->content()->toString()),
-        static fn() => null,
-    );
+    ->unwrap();
+echo $message->content()->toString();
