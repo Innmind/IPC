@@ -80,7 +80,10 @@ final class Instance
 
         if ($this->abort->enabled()) {
             return $continuation
-                ->carryWith(Attempt::error(new \RuntimeException('Server signaled to terminate')))
+                ->carryWith($this->uninstall(
+                    $os,
+                    Attempt::error(new \RuntimeException('Server signaled to terminate')),
+                ))
                 ->terminate();
         }
 
@@ -99,8 +102,8 @@ final class Instance
             /** @psalm-suppress MixedArgument Don't know why it loses the type */
             return $carry->match(
                 fn($carry) => $this->listen($carry, $continuation),
-                static fn() => $continuation
-                    ->carryWith($carry)
+                fn() => $continuation
+                    ->carryWith($this->uninstall($os, $carry))
                     ->terminate(),
             );
         }
@@ -112,12 +115,15 @@ final class Instance
                     $carry,
                     $continuation,
                 ),
-                static fn($carry) => $continuation
-                    ->carryWith(Attempt::result($carry))
+                fn($carry) => $continuation
+                    ->carryWith($this->uninstall(
+                        $os,
+                        Attempt::result($carry),
+                    ))
                     ->finish(),
             ),
-            static fn() => $continuation
-                ->carryWith($carry)
+            fn() => $continuation
+                ->carryWith($this->uninstall($os, $carry))
                 ->terminate(),
         );
     }
@@ -186,6 +192,25 @@ final class Instance
                     ->schedule($clients),
                 static fn() => $continuation // restart the loop when no new client within the timeout
                     ->carryWith(Attempt::result($carry)),
+            );
+    }
+
+    /**
+     * @param Attempt<T> $carry
+     *
+     * @return Attempt<T>
+     */
+    private function uninstall(
+        OperatingSystem $os,
+        Attempt $carry,
+    ): Attempt {
+        return $os
+            ->process()
+            ->signals()
+            ->remove($this->abort)
+            ->eitherWay(
+                static fn() => $carry,
+                static fn() => $carry, // silently fail if it fails to remove the listener
             );
     }
 }
